@@ -1,2 +1,2 @@
 # vtree
-Virtual tree model for file tree management.
+Virtual tree model for file tree management in parallel.

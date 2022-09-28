@@ -4,7 +4,7 @@ use serde::Deserialize;
 /// An item of a tree model.
 #[derive(Deserialize, Debug)]
 pub struct TreeItem {
-    name: String,
+    pub name: String,
     children: Vec<Box<TreeItem>>,
 }
 

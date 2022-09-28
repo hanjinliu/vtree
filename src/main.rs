@@ -1,9 +1,11 @@
 pub mod error;
 pub mod tree;
+pub mod terminal;
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 use structopt::StructOpt;
+use terminal::{Input, InputCommand};
 // use crate::error::VTreeError;
 
 
@@ -14,6 +16,7 @@ enum VTree {
     Init,  // vtree init: initialize vtree meta directory.
     New {name: Option<String>},  // vtree new {name}: create a new virtual directory.
     Tree {name: String},  // vtree tree {name}: show the virtual directory tree.
+    Enter {name: String},  // vtree enter {name}: enter the virtual directory.
 }
 
 fn get_json_path(name: &String) -> std::io::Result<PathBuf> {
@@ -68,6 +71,40 @@ fn tree(name: String) -> std::io::Result<()> {
     Ok(())
 }
 
+fn enter(name: String) -> std::io::Result<()> {
+    let prefix = format!("[{}] > ", name);
+    loop {
+        let input = Input::from_input(&prefix)?;
+        match input.cmd {
+            InputCommand::Cd => {
+                let path = get_json_path(&name)?;
+                if path.exists() {
+                    // TODO: change the current directory
+                }
+            }
+            InputCommand::Tree => {
+                let path = get_json_path(&name)?;
+                if path.exists() {
+                    let tree = tree::TreeItem::from_file(&path)?;
+                    println!("{}", tree);
+                }
+            }
+            InputCommand::Ls => {
+                let path = get_json_path(&name)?;
+                if path.exists() {
+                    let tree = tree::TreeItem::from_file(&path)?;
+                    let children: Vec<String> = tree.into_iter().map(|item| item.name).collect();
+                    println!("{}", children.join(" "));
+                }
+            }
+            InputCommand::Exit => {
+                break;
+            }
+        }
+    }
+    Ok(())
+}
+
 fn main() {
     let args = VTree::from_args();
     match args {
@@ -82,6 +119,9 @@ fn main() {
         }
         VTree::Tree { name } => {
             tree(name).unwrap();
+        }
+        VTree::Enter { name } => {
+            enter(name).unwrap();
         }
     };
 }
