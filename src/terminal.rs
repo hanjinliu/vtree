@@ -13,6 +13,7 @@ pub enum InputCommand {
     Tree,
     Ls,
     Mkdir,
+    Rm,
     Pwd,
     Exit,
 }
@@ -24,6 +25,7 @@ impl std::fmt::Display for InputCommand {
             InputCommand::Tree => write!(f, "tree"),
             InputCommand::Ls => write!(f, "ls"),
             InputCommand::Mkdir => write!(f, "mkdir"),
+            InputCommand::Rm => write!(f, "rm"),
             InputCommand::Pwd => write!(f, "pwd"),
             InputCommand::Exit => write!(f, "exit"),
         }
@@ -39,6 +41,7 @@ impl std::str::FromStr for InputCommand {
             "ls"   => Ok(InputCommand::Ls),
             "pwd"  => Ok(InputCommand::Pwd),
             "mkdir" => Ok(InputCommand::Mkdir),
+            "rm" => Ok(InputCommand::Rm),
             "exit" => Ok(InputCommand::Exit),
             _      => Err(()),
         }
@@ -75,25 +78,5 @@ impl std::fmt::Display for Input {
             write!(f, " {}", arg)?;
         }
         Ok(())
-    }
-}
-
-/// The prefix for the terminal input.
-pub struct Prefix {
-    pub name: String,
-    pub parent: String,
-}
-
-impl Prefix {
-    pub fn new(name: String, parent: String) -> Self {
-        Prefix{name: name, parent: parent}
-    }
-
-    pub fn replaced(&self, parent: String) -> Self {
-        Prefix{name: self.name.clone(), parent: parent}
-    }
-
-    pub fn as_str(&self) -> String {
-        format!("[{}]/{} > ", self.name, self.parent)
     }
 }

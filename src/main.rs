@@ -5,7 +5,7 @@ use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 use structopt::StructOpt;
-use terminal::{Input, InputCommand, Prefix};
+use terminal::{Input, InputCommand};
 // use crate::error::VTreeError;
 
 
@@ -82,20 +82,19 @@ fn enter(name: String) -> std::io::Result<()> {
         )?;
     }
     let mut system = tree::TreeSystem::from_file(&root)?;
-    let mut prefix = Prefix::new(name.clone(), system.root.name.clone());
 
     loop {
-        let input = Input::from_input(&prefix.as_str())?;
+        let prefix = system.as_prefix();
+        let input = Input::from_input(&prefix)?;
         match input.cmd {
             InputCommand::Cd => {
                 system.move_by_string(&input.args[0]).unwrap();
-                prefix = prefix.replaced(system.current.name.clone());
             }
             InputCommand::Tree => {
                 println!("{}", system.current);
             }
             InputCommand::Ls => {
-                let tree = tree::TreeItem::from_file(&root)?;
+                let tree = system.current.clone();
                 let children: Vec<String> = tree.into_iter().map(|item| item.name).collect();
                 println!("{}", children.join(" "));
             }
@@ -103,8 +102,16 @@ fn enter(name: String) -> std::io::Result<()> {
                 println!("{}", system.pwd());
             }
             InputCommand::Mkdir => {
-                let mut tree = tree::TreeItem::from_file(&root)?;
-                tree.mkdir(&name);
+                let mut root = system.root.clone();
+                let mut tree = system.current.clone();
+                tree.mkdir(&name).unwrap();
+                root.update_child(&name, tree).unwrap();
+            }
+            InputCommand::Rm => {
+                let mut root = system.root.clone();
+                let mut tree = system.current.clone();
+                tree.rm(&name).unwrap();
+                root.update_child(&name, tree).unwrap();
             }
             InputCommand::Exit => {
                 break;

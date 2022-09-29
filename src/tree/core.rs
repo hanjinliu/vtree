@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use super::error::{Result, TreeError};
 use serde::Deserialize;
 
@@ -36,8 +38,23 @@ impl TreeItem {
         return Err(TreeError::new(format!("No such file or directory: {}", name)))
     }
 
+    pub fn update_child(&mut self, name: &String, new_child: TreeItem) -> Result<()> {
+        for child in &mut self.children {
+            if child.name == *name {
+                *child = Box::new(new_child);
+                return Ok(())
+            }
+        }
+        return Err(TreeError::new(format!("No such file or directory: {}", name)))
+    }
+
     /// Create a new directory named `name`.
-    pub fn mkdir(&mut self, name: &String) {
+    pub fn mkdir(&mut self, name: &String) -> Result<()>{
+        for child in &self.children {
+            if child.name == *name {
+                return Err(TreeError::new(format!("Directory {} already exists.", name)))
+            }
+        }
         let child = Box::new(
             TreeItem {
                 name: name.clone(),
@@ -45,13 +62,14 @@ impl TreeItem {
             }
         );
         self.children.push(child);
+        Ok(())
     }
 
     /// Remove a directory or a file named `name`.
-    pub fn rm(&mut self, name: String) -> Result<()>{
+    pub fn rm(&mut self, name: &String) -> Result<()>{
         let mut index = 0;
         for child in &self.children {
-            if child.name == name {
+            if child.name == *name {
                 self.children.remove(index);
                 return Ok(())
             }
@@ -146,10 +164,12 @@ impl PathVector {
     }
 }
 
+/// A struct with a tree and the current position.
+/// TreeSystem is used to implement moving forward/backward in a tree.
 pub struct TreeSystem {
-    pub root: TreeItem,
-    pub path: PathVector,
-    pub current: TreeItem,
+    pub root: TreeItem,  // The root tree item.
+    pub path: PathVector,  // The current position represented by a vector of keys.
+    pub current: TreeItem,  // this field is just for caching.
 }
 
 impl TreeSystem {
@@ -168,6 +188,7 @@ impl TreeSystem {
             current = current.get_child(name)?;
         }
         self.path = path;
+        self.current = current.deref().clone();
 
         Ok(())
     }
@@ -206,5 +227,11 @@ impl TreeSystem {
             }
         }
         Ok(())
+    }
+
+    pub fn as_prefix(&self) -> String {
+        let name = &self.root.name;
+        let path = self.path.as_str();
+        format!("/[{}]/{} > ", name, path)
     }
 }
