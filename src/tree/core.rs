@@ -3,11 +3,19 @@ use std::ops::Deref;
 use super::error::{Result, TreeError};
 use serde::Deserialize;
 
+#[derive(Clone, Copy, Debug, Deserialize)]
+enum TreeItemType {
+    File,
+    Dir,
+}
+
 /// An item of a tree model.
 #[derive(Deserialize, Debug, Clone)]
 pub struct TreeItem {
-    pub name: String,
-    children: Vec<Box<TreeItem>>,
+    pub name: String,  // Name of this item.
+    children: Vec<Box<TreeItem>>,  // Children of this item.
+    // pub desc: Option<String>,  // Any description about this model.
+    // item_type: TreeItemType,  // Type of this item.
 }
 
 // Implement functions that emulate file system operations.
@@ -31,6 +39,15 @@ impl TreeItem {
 
     pub fn get_child(&self, name: &String) -> Result<&TreeItem> {
         for child in &self.children {
+            if child.name == *name {
+                return Ok(child)
+            }
+        }
+        return Err(TreeError::new(format!("No such file or directory: {}", name)))
+    }
+
+    pub fn get_child_mut(&mut self, name: &String) -> Result<&mut TreeItem> {
+        for child in &mut self.children {
             if child.name == *name {
                 return Ok(child)
             }
@@ -195,7 +212,35 @@ impl TreeModel {
         Ok(())
     }
 
-    pub fn home(&mut self) {
+    pub fn item_at(&self, path: &Vec<String>) -> Result<&TreeItem> {
+        let mut current = &self.root;
+        for name in path.iter() {
+            current = current.get_child(name)?;
+        }
+        Ok(current)
+    }
+
+    pub fn item_at_mut(&mut self, path: &Vec<String>) -> Result<&mut TreeItem> {
+        let mut current = &mut self.root;
+        for name in path.iter() {
+            current = current.get_child_mut(name)?;
+        }
+        Ok(current)
+    }
+
+    pub fn set_item_at(&mut self, path: Vec<String>, item: TreeItem) -> Result<()> {
+        // Borrowing happens in the next line so `self.path.path` needs to be evaluated
+        // before that.
+        let is_current = path == self.path.path;  
+        let at = self.item_at_mut(&path)?;
+        *at = item;
+        if is_current {
+            self.current = at.clone();
+        }
+        Ok(())
+    }
+
+    pub fn to_home(&mut self) {
         self.current = self.root.clone();
         self.path = PathVector::new();
     }

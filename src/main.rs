@@ -139,18 +139,14 @@ fn enter(name: String) -> std::io::Result<()> {
                 }
             }
             InputCommand::Mkdir => {
-                let mut root = tree.root.clone();
                 let mut item = tree.current.clone();
                 item.mkdir(&input.args[0]).unwrap();
-                root.update_child(&tree.current.name, item).unwrap();
-                tree.root = root;
+                tree.set_item_at(tree.path.path.clone(), item).unwrap();
             }
             InputCommand::Rm => {
-                let mut root = tree.root.clone();
                 let mut item = tree.current.clone();
                 item.rm(&input.args[0]).unwrap();
-                root.update_child(&tree.current.name, item).unwrap();
-                tree.root = root;
+                tree.set_item_at(tree.path.path.clone(), item).unwrap();
             }
             InputCommand::Exit => {
                 break;
