@@ -165,21 +165,23 @@ impl PathVector {
 }
 
 /// A struct with a tree and the current position.
-/// TreeSystem is used to implement moving forward/backward in a tree.
-pub struct TreeSystem {
+/// TreeModel is used to implement moving forward/backward in a tree.
+pub struct TreeModel {
     pub root: TreeItem,  // The root tree item.
     pub path: PathVector,  // The current position represented by a vector of keys.
     pub current: TreeItem,  // this field is just for caching.
 }
 
-impl TreeSystem {
+impl TreeModel {
+    /// Construct a model using a single tree item.
     pub fn new(item: TreeItem) -> Self {
-        TreeSystem {root: item.clone(), path: PathVector::new(), current: item}
+        TreeModel {root: item.clone(), path: PathVector::new(), current: item}
     }
 
+    /// Construct a model from a json file.
     pub fn from_file(path: &std::path::Path) -> std::io::Result<Self> {
         let item = TreeItem::from_file(path)?;
-        Ok(TreeSystem::new(item))
+        Ok(TreeModel::new(item))
     }
 
     pub fn set_current(&mut self, path: PathVector) -> Result<()> {

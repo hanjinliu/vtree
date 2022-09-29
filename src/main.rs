@@ -19,6 +19,9 @@ enum VTree {
     Enter {name: String},  // vtree enter {name}: enter the virtual directory.
 }
 
+/// Check .vtree directory and search for virtual tree model stored in it.
+/// # Errors
+/// If the .vtree directory does not exist, return an error.
 fn get_json_path(name: &String) -> std::io::Result<PathBuf> {
     let mut path = std::env::current_dir()?;
     path.push(".vtree");
@@ -32,6 +35,20 @@ fn get_json_path(name: &String) -> std::io::Result<PathBuf> {
     }
     path.push(format!("{}.json", name));
     Ok(path)
+}
+
+/// Resolve input path string and return a PathBuf with an absolute path.
+fn resolve_path(path: &String) -> std::io::Result<PathBuf> {
+    if path.starts_with(".") || path.starts_with("/") {
+        let curdir = std::env::current_dir()?;
+        let path = path.strip_prefix(".").unwrap().strip_prefix("/").unwrap();
+        let joined = std::path::Path::new(&curdir).join(path);
+        Ok(joined)
+    }
+    else {
+        let joined = std::path::Path::new(&path).to_path_buf();
+        Ok(joined)
+    }
 }
 
 fn init() -> std::io::Result<()>{
@@ -65,8 +82,8 @@ fn new(name: String) -> std::io::Result<()> {
 fn tree(name: String) -> std::io::Result<()> {
     let path = get_json_path(&name)?;
     if path.exists() {
-        let tree = tree::TreeItem::from_file(&path)?;
-        println!("{}", tree);
+        let item = tree::TreeItem::from_file(&path)?;
+        println!("{}", item);
     }
     Ok(())
 }
@@ -81,37 +98,59 @@ fn enter(name: String) -> std::io::Result<()> {
             )
         )?;
     }
-    let mut system = tree::TreeSystem::from_file(&root)?;
+    let mut tree = tree::TreeModel::from_file(&root)?;
 
     loop {
-        let prefix = system.as_prefix();
+        let prefix = tree.as_prefix();
         let input = Input::from_input(&prefix)?;
         match input.cmd {
             InputCommand::Cd => {
-                system.move_by_string(&input.args[0]).unwrap();
+                tree.move_by_string(&input.args[0]).unwrap();
             }
             InputCommand::Tree => {
-                println!("{}", system.current);
+                println!("{}", tree.current);
             }
             InputCommand::Ls => {
-                let tree = system.current.clone();
-                let children: Vec<String> = tree.into_iter().map(|item| item.name).collect();
+                let item = tree.current.clone();
+                let children: Vec<String> = item.into_iter().map(|item| item.name).collect();
                 println!("{}", children.join(" "));
             }
             InputCommand::Pwd => {
-                println!("{}", system.pwd());
+                println!("./{}/{}", tree.root.name, tree.pwd());
+            }
+            InputCommand::Cat => {
+                let arg = &input.args[0];
+                let item = tree.current.get_child(&arg).unwrap();
+                if item.is_file() {
+                    let path = resolve_path(&item.name).unwrap();
+                    let contents = std::fs::read_to_string(&path);
+                    match contents {
+                        Ok(value) => { println!("{}", value); }
+                        Err(err) => { return Err(err); }
+                    }
+                }
+                else {
+                    return Err(
+                        std::io::Error::new(
+                            std::io::ErrorKind::NotFound,
+                            format!("{} is not a file.", arg),
+                        )
+                    )
+                }
             }
             InputCommand::Mkdir => {
-                let mut root = system.root.clone();
-                let mut tree = system.current.clone();
-                tree.mkdir(&name).unwrap();
-                root.update_child(&name, tree).unwrap();
+                let mut root = tree.root.clone();
+                let mut item = tree.current.clone();
+                item.mkdir(&input.args[0]).unwrap();
+                root.update_child(&tree.current.name, item).unwrap();
+                tree.root = root;
             }
             InputCommand::Rm => {
-                let mut root = system.root.clone();
-                let mut tree = system.current.clone();
-                tree.rm(&name).unwrap();
-                root.update_child(&name, tree).unwrap();
+                let mut root = tree.root.clone();
+                let mut item = tree.current.clone();
+                item.rm(&input.args[0]).unwrap();
+                root.update_child(&tree.current.name, item).unwrap();
+                tree.root = root;
             }
             InputCommand::Exit => {
                 break;

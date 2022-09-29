@@ -15,6 +15,7 @@ pub enum InputCommand {
     Mkdir,
     Rm,
     Pwd,
+    Cat,
     Exit,
 }
 
@@ -27,6 +28,7 @@ impl std::fmt::Display for InputCommand {
             InputCommand::Mkdir => write!(f, "mkdir"),
             InputCommand::Rm => write!(f, "rm"),
             InputCommand::Pwd => write!(f, "pwd"),
+            InputCommand::Cat => write!(f, "cat"),
             InputCommand::Exit => write!(f, "exit"),
         }
     }
@@ -36,14 +38,15 @@ impl std::str::FromStr for InputCommand {
     type Err = ();
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "cd"   => Ok(InputCommand::Cd),
-            "tree" => Ok(InputCommand::Tree),
-            "ls"   => Ok(InputCommand::Ls),
-            "pwd"  => Ok(InputCommand::Pwd),
+            "cd"    => Ok(InputCommand::Cd),
+            "tree"  => Ok(InputCommand::Tree),
+            "ls"    => Ok(InputCommand::Ls),
+            "pwd"   => Ok(InputCommand::Pwd),
+            "cat"   => Ok(InputCommand::Cat),
             "mkdir" => Ok(InputCommand::Mkdir),
-            "rm" => Ok(InputCommand::Rm),
-            "exit" => Ok(InputCommand::Exit),
-            _      => Err(()),
+            "rm"    => Ok(InputCommand::Rm),
+            "exit"  => Ok(InputCommand::Exit),
+            _       => Err(()),
         }
     }
 }
