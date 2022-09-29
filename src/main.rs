@@ -5,7 +5,7 @@ use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 use structopt::StructOpt;
-use terminal::{Input, InputCommand};
+use terminal::{Input, InputCommand, Prefix};
 // use crate::error::VTreeError;
 
 
@@ -72,30 +72,39 @@ fn tree(name: String) -> std::io::Result<()> {
 }
 
 fn enter(name: String) -> std::io::Result<()> {
-    let prefix = format!("[{}] > ", name);
+    let root = get_json_path(&name)?;
+    if !root.exists() {
+        return Err(
+            std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!("Virtual directory {} does not exist.", name),
+            )
+        )?;
+    }
+    let mut system = tree::TreeSystem::from_file(&root)?;
+    let mut prefix = Prefix::new(name.clone(), system.root.name.clone());
+
     loop {
-        let input = Input::from_input(&prefix)?;
+        let input = Input::from_input(&prefix.as_str())?;
         match input.cmd {
             InputCommand::Cd => {
-                let path = get_json_path(&name)?;
-                if path.exists() {
-                    // TODO: change the current directory
-                }
+                system.move_by_string(&input.args[0]).unwrap();
+                prefix = prefix.replaced(system.current.name.clone());
             }
             InputCommand::Tree => {
-                let path = get_json_path(&name)?;
-                if path.exists() {
-                    let tree = tree::TreeItem::from_file(&path)?;
-                    println!("{}", tree);
-                }
+                println!("{}", system.current);
             }
             InputCommand::Ls => {
-                let path = get_json_path(&name)?;
-                if path.exists() {
-                    let tree = tree::TreeItem::from_file(&path)?;
-                    let children: Vec<String> = tree.into_iter().map(|item| item.name).collect();
-                    println!("{}", children.join(" "));
-                }
+                let tree = tree::TreeItem::from_file(&root)?;
+                let children: Vec<String> = tree.into_iter().map(|item| item.name).collect();
+                println!("{}", children.join(" "));
+            }
+            InputCommand::Pwd => {
+                println!("{}", system.pwd());
+            }
+            InputCommand::Mkdir => {
+                let mut tree = tree::TreeItem::from_file(&root)?;
+                tree.mkdir(&name);
             }
             InputCommand::Exit => {
                 break;

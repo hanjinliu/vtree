@@ -2,7 +2,7 @@ use super::error::{Result, TreeError};
 use serde::Deserialize;
 
 /// An item of a tree model.
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct TreeItem {
     pub name: String,
     children: Vec<Box<TreeItem>>,
@@ -27,11 +27,20 @@ impl TreeItem {
         !self.is_file()
     }
 
+    pub fn get_child(&self, name: &String) -> Result<&TreeItem> {
+        for child in &self.children {
+            if child.name == *name {
+                return Ok(child)
+            }
+        }
+        return Err(TreeError::new(format!("No such file or directory: {}", name)))
+    }
+
     /// Create a new directory named `name`.
-    pub fn mkdir(&mut self, name: String) {
+    pub fn mkdir(&mut self, name: &String) {
         let child = Box::new(
             TreeItem {
-                name: name,
+                name: name.clone(),
                 children: Vec::new(),
             }
         );
@@ -82,5 +91,120 @@ impl Iterator for TreeItem {
             return None;
         }
         self.children.pop()
+    }
+}
+
+#[derive(Clone)]
+pub struct PathVector {
+    pub path: Vec<String>,
+}
+
+impl PathVector {
+    pub fn new() -> Self {
+        PathVector{path: Vec::new()}
+    }
+
+    pub fn from_vec(strings: Vec<String>) -> Self {
+        PathVector{path: strings}
+    }
+
+    pub fn from_string(string: String) -> Self {
+        let mut vec = Vec::new();
+        for s in string.split("/") {
+            vec.push(s.to_string());
+        }
+        PathVector{path: vec}
+    }
+
+    /// Create a new path vector by extending the existing path with a string. This
+    /// function is an immutable operation.
+    pub fn join_str(&self, name: String) -> Self {
+        let mut vec = self.path.clone();
+        vec.push(name);
+        Self::from_vec(vec)
+    }
+
+    /// Create a new path vector by extending the existing path with another path
+    /// vector. This function is an immutable operation.
+    pub fn join_path(&self, path: &PathVector) -> Self {
+        let mut vec = self.path.clone();
+        vec.extend(path.path.clone());
+        Self::from_vec(vec)
+    }
+
+    pub fn pops(self, level: usize) -> Self {
+        let mut vec = self.path.clone();
+        let npop = level.min(vec.len());
+        for _ in 0..npop {
+            vec.pop();
+        }
+        Self::from_vec(vec)
+    }
+
+    pub fn as_str(&self) -> String {
+        self.path.join("/")
+    }
+}
+
+pub struct TreeSystem {
+    pub root: TreeItem,
+    pub path: PathVector,
+    pub current: TreeItem,
+}
+
+impl TreeSystem {
+    pub fn new(item: TreeItem) -> Self {
+        TreeSystem {root: item.clone(), path: PathVector::new(), current: item}
+    }
+
+    pub fn from_file(path: &std::path::Path) -> std::io::Result<Self> {
+        let item = TreeItem::from_file(path)?;
+        Ok(TreeSystem::new(item))
+    }
+
+    pub fn set_current(&mut self, path: PathVector) -> Result<()> {
+        let mut current = &self.root;
+        for name in &path.path {
+            current = current.get_child(name)?;
+        }
+        self.path = path;
+
+        Ok(())
+    }
+
+    pub fn home(&mut self) {
+        self.current = self.root.clone();
+        self.path = PathVector::new();
+    }
+
+    /// Return the current path.
+    pub fn pwd(&self) -> String {
+        self.path.as_str()
+    }
+
+    pub fn move_forward(&mut self, name: String) -> Result<()> {
+        let child = self.current.get_child(&name)?;
+        self.current = child.clone();
+        self.path = self.path.join_str(name);
+        Ok(())
+    }
+
+    pub fn move_backward(&mut self, level: usize) -> Result<()> {
+        let path = self.path.clone().pops(level);
+        self.set_current(path)
+    }
+
+    pub fn move_by_string(&mut self, path: &String) -> Result<()> {
+        for s in path.split("/") {
+            if s == "" {
+                continue;
+            }
+            if s == ".." {
+                self.move_backward(1)?;
+            } else {
+                self.move_forward(s.to_string())?;
+            }
+        }
+        Ok(())
     }
 }

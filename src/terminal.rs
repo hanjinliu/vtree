@@ -7,10 +7,13 @@ pub fn input() -> std::io::Result<String> {
     Ok(val)
 }
 
+/// Available input commands.
 pub enum InputCommand {
     Cd,
     Tree,
     Ls,
+    Mkdir,
+    Pwd,
     Exit,
 }
 
@@ -20,6 +23,8 @@ impl std::fmt::Display for InputCommand {
             InputCommand::Cd   => write!(f, "cd"),
             InputCommand::Tree => write!(f, "tree"),
             InputCommand::Ls => write!(f, "ls"),
+            InputCommand::Mkdir => write!(f, "mkdir"),
+            InputCommand::Pwd => write!(f, "pwd"),
             InputCommand::Exit => write!(f, "exit"),
         }
     }
@@ -31,12 +36,16 @@ impl std::str::FromStr for InputCommand {
         match s {
             "cd"   => Ok(InputCommand::Cd),
             "tree" => Ok(InputCommand::Tree),
+            "ls"   => Ok(InputCommand::Ls),
+            "pwd"  => Ok(InputCommand::Pwd),
+            "mkdir" => Ok(InputCommand::Mkdir),
             "exit" => Ok(InputCommand::Exit),
             _      => Err(()),
         }
     }
 }
 
+/// The structured input string.
 pub struct Input {
     pub cmd: InputCommand,
     pub args: Vec<String>,
@@ -66,5 +75,25 @@ impl std::fmt::Display for Input {
             write!(f, " {}", arg)?;
         }
         Ok(())
+    }
+}
+
+/// The prefix for the terminal input.
+pub struct Prefix {
+    pub name: String,
+    pub parent: String,
+}
+
+impl Prefix {
+    pub fn new(name: String, parent: String) -> Self {
+        Prefix{name: name, parent: parent}
+    }
+
+    pub fn replaced(&self, parent: String) -> Self {
+        Prefix{name: self.name.clone(), parent: parent}
+    }
+
+    pub fn as_str(&self) -> String {
+        format!("[{}]/{} > ", self.name, self.parent)
     }
 }
