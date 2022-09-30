@@ -17,15 +17,14 @@ enum VTree {
     New {name: Option<String>},  // vtree new {name}: create a new virtual directory.
     Tree {name: String},  // vtree tree {name}: show the virtual directory tree.
     Enter {name: String},  // vtree enter {name}: enter the virtual directory.
+    List,  // vtree list: show all the names of virtual root trees.
 }
 
-/// Check .vtree directory and search for virtual tree model stored in it.
-/// # Errors
-/// If the .vtree directory does not exist, return an error.
-fn get_json_path(name: &String) -> std::io::Result<PathBuf> {
+/// Return the directory that .vtree directory should exists.
+fn get_vtree_path(check: bool) -> std::io::Result<PathBuf> {
     let mut path = std::env::current_dir()?;
     path.push(".vtree");
-    if !path.exists() {
+    if check && !path.exists() {
         return Err(
             std::io::Error::new(
                 std::io::ErrorKind::NotFound,
@@ -33,6 +32,14 @@ fn get_json_path(name: &String) -> std::io::Result<PathBuf> {
             )
         );
     }
+    Ok(path)
+}
+
+/// Check .vtree directory and search for virtual tree model stored in it.
+/// # Errors
+/// If the .vtree directory does not exist, return an error.
+fn get_json_path(name: &String) -> std::io::Result<PathBuf> {
+    let mut path = get_vtree_path(true)?;
     path.push(format!("{}.json", name));
     Ok(path)
 }
@@ -51,6 +58,8 @@ fn resolve_path(path: &String) -> std::io::Result<PathBuf> {
     }
 }
 
+/// Initialize current directory with vtree metadata.
+/// This command is the first one to run before using vtree.
 fn init() -> std::io::Result<()>{
     let mut path = std::env::current_dir()?;
     path.push(".vtree");
@@ -64,6 +73,9 @@ fn init() -> std::io::Result<()>{
     Ok(())
 }
 
+/// Create a new virtual root tree in the vtree meta directory.
+/// # Errors
+/// If .vtree directory does not exist, return an error.
 fn new(name: String) -> std::io::Result<()> {
     let path = get_json_path(&name)?;
     if !path.exists() {
@@ -79,6 +91,9 @@ fn new(name: String) -> std::io::Result<()> {
     Ok(())
 }
 
+/// Print out all the content under the virtual tree with the given name.
+/// # Errors
+/// If .vtree directory does not exist, return an error.
 fn tree(name: String) -> std::io::Result<()> {
     let path = get_json_path(&name)?;
     if path.exists() {
@@ -88,6 +103,9 @@ fn tree(name: String) -> std::io::Result<()> {
     Ok(())
 }
 
+/// Enter a virtual tree and launch vtree session.
+/// Commands such as "cd" and "ls" are replaced with virtual ones. Until "exit"
+/// is called, you'll be in the virtual file system.
 fn enter(name: String) -> std::io::Result<()> {
     let root = get_json_path(&name)?;
     if !root.exists() {
@@ -164,6 +182,23 @@ fn enter(name: String) -> std::io::Result<()> {
     Ok(())
 }
 
+fn list() -> std::io::Result<()> {
+    let path = get_vtree_path(true)?;
+    // iterate all the json files and print each name and description.
+    for entry in std::fs::read_dir(path)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_file() {
+            let item = tree::TreeItem::from_file(&path)?;
+            match item.desc {
+                Some(value) => {println!("{}: {}", item.name, value);}
+                None => {println!("{}", item.name);}
+            }
+        }
+    }
+    Ok(())
+}
+
 fn main() {
     let args = VTree::from_args();
     match args {
@@ -181,6 +216,9 @@ fn main() {
         }
         VTree::Enter { name } => {
             enter(name).unwrap();
+        }
+        VTree::List => {
+            list().unwrap();
         }
     };
 }

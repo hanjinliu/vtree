@@ -14,12 +14,20 @@ enum TreeItemType {
 pub struct TreeItem {
     pub name: String,  // Name of this item.
     children: Vec<Box<TreeItem>>,  // Children of this item.
-    // pub desc: Option<String>,  // Any description about this model.
+    pub desc: Option<String>,  // Any description about this model.
     // item_type: TreeItemType,  // Type of this item.
 }
 
 // Implement functions that emulate file system operations.
 impl TreeItem {
+    pub fn new(name: String) -> Self {
+        TreeItem {
+            name,
+            children: Vec::new(),
+            desc: None,
+        }
+    }
+
     pub fn from_file(path: &std::path::Path) -> std::io::Result<Self> {
         let file = std::fs::File::open(path)?;
         let reader = std::io::BufReader::new(file);
@@ -99,12 +107,7 @@ impl TreeItem {
                 return Err(TreeError::new(format!("Directory {} already exists.", name)))
             }
         }
-        let child = Box::new(
-            TreeItem {
-                name: name.clone(),
-                children: Vec::new(),
-            }
-        );
+        let child = Box::new(TreeItem::new(name.clone()));
         self.children.push(child);
         Ok(())
     }
