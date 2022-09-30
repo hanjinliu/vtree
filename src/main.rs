@@ -20,10 +20,14 @@ enum VTree {
     List,  // vtree list: show all the names of virtual root trees.
 }
 
+// Subdirectory names used in vtree
+const _VTREE: &str = ".vtree";
+const _TREES: &str = "trees";
+const _VIRTUAL_FILES: &str = "virtual-files";
+
 /// Return the directory that .vtree directory should exists.
 fn get_vtree_path(check: bool) -> std::io::Result<PathBuf> {
-    let mut path = std::env::current_dir()?;
-    path.push(".vtree");
+    let path = std::env::current_dir()?.join(_VTREE);
     if check && !path.exists() {
         return Err(
             std::io::Error::new(
@@ -39,9 +43,8 @@ fn get_vtree_path(check: bool) -> std::io::Result<PathBuf> {
 /// # Errors
 /// If the .vtree directory does not exist, return an error.
 fn get_json_path(name: &String) -> std::io::Result<PathBuf> {
-    let mut path = get_vtree_path(true)?;
-    path.push(format!("{}.json", name));
-    Ok(path)
+    let path = get_vtree_path(true)?;
+    Ok(path.join(_TREES).join(format!("{}.json", name)))
 }
 
 /// Resolve input path string and return a PathBuf with an absolute path.
@@ -61,14 +64,21 @@ fn resolve_path(path: &String) -> std::io::Result<PathBuf> {
 /// Initialize current directory with vtree metadata.
 /// This command is the first one to run before using vtree.
 fn init() -> std::io::Result<()>{
-    let mut path = std::env::current_dir()?;
-    path.push(".vtree");
+    let path = get_vtree_path(false)?;
 
     if !path.exists() {
         // create a vtree hidden directory as /.vtree if it does not
         // exist.
         std::fs::create_dir(path.clone())?;
     }
+
+    for dir in [_TREES, _VIRTUAL_FILES] {
+        let subdir = path.join(dir);
+        if !subdir.exists() {
+            std::fs::create_dir(subdir)?;
+        }
+    }
+
     println!("Initialized vtree at {}", path.to_str().unwrap());
     Ok(())
 }
@@ -183,7 +193,8 @@ fn enter(name: String) -> std::io::Result<()> {
 }
 
 fn list() -> std::io::Result<()> {
-    let path = get_vtree_path(true)?;
+    let mut path = get_vtree_path(true)?;
+    path.push(_TREES);
     // iterate all the json files and print each name and description.
     for entry in std::fs::read_dir(path)? {
         let entry = entry?;
