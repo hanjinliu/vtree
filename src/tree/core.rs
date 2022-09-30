@@ -37,15 +37,42 @@ impl TreeItem {
         !self.is_file()
     }
 
+    /// Get the vector of children names.
+    pub fn children_names(&self) -> Vec<String> {
+        self.children.iter().map(|x| x.name.clone()).collect()
+    }
+
+    /// Get a child item by its name.
     pub fn get_child(&self, name: &String) -> Result<&TreeItem> {
-        for child in &self.children {
-            if child.name == *name {
-                return Ok(child)
+        for each in &self.children {
+            if each.name == *name {
+                return Ok(each)
             }
         }
         return Err(TreeError::new(format!("No such file or directory: {}", name)))
     }
 
+    /// Get a offspring item by its relative path from self.
+    /// Unlike `get_child`, input such as "a/b/c" is allowed.
+    pub fn get_offspring(&self, name: &String) -> Result<&TreeItem> {
+        let mut child = self;
+        for filename in name.split('/').into_iter() {
+            let mut found = false;
+            for each in &child.children {
+                if each.name == *filename {
+                    child = each.as_ref();
+                    found = true;
+                    break;
+                }
+            }
+            if !found {
+                return Err(TreeError::new(format!("No such file or directory: {}", name)))
+            }
+        }
+        Ok(child)
+    }
+
+    /// The mutable version of `get_child`.
     pub fn get_child_mut(&mut self, name: &String) -> Result<&mut TreeItem> {
         for child in &mut self.children {
             if child.name == *name {

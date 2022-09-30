@@ -111,8 +111,16 @@ fn enter(name: String) -> std::io::Result<()> {
                 println!("{}", tree.current);
             }
             InputCommand::Ls => {
-                let item = tree.current.clone();
-                let children: Vec<String> = item.into_iter().map(|item| item.name).collect();
+                let item = {
+                    if input.args.len() == 0 {
+                        &tree.current
+                    }
+                    else {
+                        let path = &input.args[0];
+                        tree.current.get_offspring(&path).unwrap()
+                    }
+                };
+                let children: Vec<String> = item.children_names();
                 println!("{}", children.join(" "));
             }
             InputCommand::Pwd => {
@@ -120,7 +128,7 @@ fn enter(name: String) -> std::io::Result<()> {
             }
             InputCommand::Cat => {
                 let arg = &input.args[0];
-                let item = tree.current.get_child(&arg).unwrap();
+                let item = tree.current.get_offspring(&arg).unwrap();
                 if item.is_file() {
                     let path = resolve_path(&item.name).unwrap();
                     let contents = std::fs::read_to_string(&path);
