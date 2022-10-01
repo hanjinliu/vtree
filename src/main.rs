@@ -170,11 +170,23 @@ fn enter(name: String) -> std::io::Result<()> {
                 };
                 File::create(&vpath)?;
                 let mut item = tree.current.clone();
-                item.new_item(&name, vpath).unwrap();
+                item.add_item(&name, vpath).unwrap();
                 tree.set_item_at(tree.path.path.clone(), item).unwrap();
             }
             InputCommand::Open => {
                 tree.open_file(&input.args[0])?;
+            }
+            InputCommand::Cp => {
+                let src = &input.args[0];
+                let dst = {
+                    if input.args.len() == 1 {
+                        None
+                    }
+                    else {
+                        Some(&input.args[1])
+                    }
+                };
+                tree.add_alias(dst, PathBuf::from(src)).unwrap();
             }
             InputCommand::Mkdir => {
                 tree.mkdir(&input.args[0]).unwrap();

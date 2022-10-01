@@ -1,7 +1,13 @@
-use super::tree_item::TreeItem;
+use super::{tree_item::TreeItem, error::TreeError};
 use std::{ops::Deref, path::PathBuf};
 
 use super::error::{Result};
+
+// #[derive(Clone, Debug)]
+// pub struct VirtualPath {
+//     inner: PathBuf,
+// }
+
 
 #[derive(Clone)]
 pub struct PathVector {
@@ -212,10 +218,27 @@ impl TreeModel {
         println!("{}", children.join(" "));
         Ok(())
     }
+
+    pub fn add_alias(&mut self, name: Option<&String>, path: PathBuf) -> Result<()> {
+        if !path.exists() {
+            return Err(
+                TreeError::new(
+                    format!("{} does not exist.", path.to_str().unwrap()),
+                )
+            )
+        }
+        match name {
+            Some(name) => self.current.add_item(name, path),
+            None => self.current.add_item(
+                &path.file_name().unwrap().to_str().unwrap().to_string(), path
+            )
+        }
+    }
+
 }
 
 
-/// Resolve input path string and return a PathBuf with an absolute path.
+/// Resolve input path string (must exist) and return a PathBuf with an absolute path.
 fn resolve_path(path: &str) -> std::io::Result<PathBuf> {
     if path.starts_with(".") || path.starts_with("/") {
         let curdir = std::env::current_dir()?;

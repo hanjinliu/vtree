@@ -154,7 +154,7 @@ impl TreeItem {
         return Err(TreeError::new(format!("No such file or directory: {}", name)))
     }
 
-    pub fn new_item(&mut self, name: &String, path: PathBuf) -> Result<()> {
+    pub fn add_item(&mut self, name: &String, path: PathBuf) -> Result<()> {
         for child in &self.children {
             if child.name == *name {
                 return Err(TreeError::new(format!("File or directory {} already exists.", name)))
