@@ -158,16 +158,24 @@ fn enter(name: String) -> std::io::Result<()> {
                 // find unique file name
                 let vpath_copy = vpath_cand.clone();
                 let stem = vpath_copy.file_stem().unwrap().to_str().unwrap();
-                let ext = vpath_copy.extension().unwrap().to_str().unwrap();
+                let ext = match vpath_copy.extension() {
+                    Some(ext) => ".".to_string() + ext.to_str().unwrap(),
+                    None => {
+                        "".to_string()
+                    }
+                };
                 let mut count = 0;
+                // search for unique file name
                 let vpath = loop {
                     if !vpath_cand.exists() {
                         break vpath_cand;
                     }
-                    let filename = format!("{}-{}.{}", stem, count, ext);
+                    let filename = format!("{}-{}{}", stem, count, ext);
                     vpath_cand = vpath_cand.parent().unwrap().join(filename);
                     count += 1;
                 };
+
+                // create a hidden file
                 File::create(&vpath)?;
                 let mut item = tree.current.clone();
                 item.add_item(&name, vpath).unwrap();
@@ -192,10 +200,18 @@ fn enter(name: String) -> std::io::Result<()> {
                 tree.mkdir(&input.args[0]).unwrap();
             }
             InputCommand::Rm => {
-                tree.rm(&input.args[0]).unwrap();
+                let name = &input.args[0];
+                let item = tree.current.get_child(name).unwrap();
+                match &item.entity {
+                    Some(path) => {
+                        std::fs::remove_file(path)?;
+                    }
+                    None => {}
+                }
+                tree.rm(name).unwrap();
             }
             InputCommand::Exit => {
-                // TODO: save the tree to the json file.
+                tree.to_file(root.as_path())?;
                 break;
             }
         }

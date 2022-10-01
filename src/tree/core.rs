@@ -1,6 +1,6 @@
 use super::{tree_item::TreeItem, error::TreeError};
 use std::{ops::Deref, path::PathBuf};
-
+use std::io::Write;
 use super::error::{Result};
 
 // #[derive(Clone, Debug)]
@@ -79,6 +79,15 @@ impl TreeModel {
     pub fn from_file(path: &std::path::Path) -> std::io::Result<Self> {
         let item = TreeItem::from_file(path)?;
         Ok(TreeModel::new(item))
+    }
+
+    /// Write the tree to a json file at `path`.
+    pub fn to_file(&self, path: &std::path::Path) -> std::io::Result<()> {
+        let serialized = serde_json::to_string_pretty(&self.root).unwrap();
+        // write
+        let mut file = std::fs::File::create(path)?;
+
+        file.write_all(serialized.as_bytes())
     }
 
     pub fn set_current(&mut self, path: PathVector) -> Result<()> {

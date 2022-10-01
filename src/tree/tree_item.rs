@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 
 use super::error::{Result, TreeError};
-use serde::Deserialize;
+use serde::{Serialize, Deserialize};
 
 /// An item of a tree model.
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TreeItem {
     pub name: String,  // Name of this item.
     children: Vec<Box<TreeItem>>,  // Children of this item.
