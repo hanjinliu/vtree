@@ -238,12 +238,14 @@ impl TreeModel {
                 )
             )
         }
+        let mut item = self.current.clone();
         match name {
-            Some(name) => self.current.add_item(name, path),
-            None => self.current.add_item(
+            Some(name) => item.add_item(name, path)?,
+            None => item.add_item(
                 &path.file_name().unwrap().to_str().unwrap().to_string(), path
-            )
-        }
+            )?
+        };
+        self.set_item_at(self.path.path.clone(), item)
     }
 
     pub fn create_new_file(&mut self, name: &String, candidate: PathBuf) -> Result<()> {
@@ -295,7 +297,7 @@ impl TreeModel {
 fn resolve_path(path: &str) -> std::io::Result<PathBuf> {
     if path.starts_with(".") || path.starts_with("/") {
         let curdir = std::env::current_dir()?;
-        let path = path.strip_prefix(".").unwrap().strip_prefix("/").unwrap();
+        let path = path.strip_prefix(".").unwrap_or(path).strip_prefix("/").unwrap_or(path);
         let joined = std::path::Path::new(&curdir).join(path);
         Ok(joined)
     }

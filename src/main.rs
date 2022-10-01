@@ -39,6 +39,19 @@ fn get_vtree_path(check: bool) -> std::io::Result<PathBuf> {
     Ok(path)
 }
 
+fn get_relative_vtree_path(check: bool) -> std::io::Result<PathBuf> {
+    let path = std::env::current_dir()?.join(_VTREE);
+    if check && !path.exists() {
+        return Err(
+            std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "vtree is not initialized. Please run `vtree init` first.",
+            )
+        );
+    }
+    Ok(std::path::PathBuf::from(".").join(_VTREE))
+}
+
 /// Check .vtree directory and search for virtual tree model stored in it.
 /// # Errors
 /// If the .vtree directory does not exist, return an error.
@@ -153,8 +166,7 @@ fn enter(name: String) -> std::io::Result<()> {
             }
             InputCommand::Touch => {
                 let name = &input.args[0];
-                
-                let vpath_cand = get_vtree_path(true)?
+                let vpath_cand = get_relative_vtree_path(true)?
                     .join(_VIRTUAL_FILES)
                     .join(name);
                 // find unique file name
