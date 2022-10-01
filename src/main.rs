@@ -47,20 +47,6 @@ fn get_json_path(name: &String) -> std::io::Result<PathBuf> {
     Ok(path.join(_TREES).join(format!("{}.json", name)))
 }
 
-/// Resolve input path string and return a PathBuf with an absolute path.
-fn resolve_path(path: &str) -> std::io::Result<PathBuf> {
-    if path.starts_with(".") || path.starts_with("/") {
-        let curdir = std::env::current_dir()?;
-        let path = path.strip_prefix(".").unwrap().strip_prefix("/").unwrap();
-        let joined = std::path::Path::new(&curdir).join(path);
-        Ok(joined)
-    }
-    else {
-        let joined = std::path::Path::new(&path).to_path_buf();
-        Ok(joined)
-    }
-}
-
 /// Initialize current directory with vtree metadata.
 /// This command is the first one to run before using vtree.
 fn init() -> std::io::Result<()>{
@@ -139,41 +125,22 @@ fn enter(name: String) -> std::io::Result<()> {
                 println!("{}", tree.current);
             }
             InputCommand::Ls => {
-                let item = {
+                let name = {
                     if input.args.len() == 0 {
-                        &tree.current
+                        None
                     }
                     else {
-                        let path = &input.args[0];
-                        tree.current.get_offspring(&path).unwrap()
+                        Some(&input.args[0])
                     }
                 };
-                let children: Vec<String> = item.children_names();
-                println!("{}", children.join(" "));
+                tree.ls_simple(name).unwrap();
             }
             InputCommand::Pwd => {
                 println!("./{}/{}", tree.root.name, tree.pwd());
             }
             InputCommand::Cat => {
                 let arg = &input.args[0];
-                let item = tree.current.get_offspring(&arg).unwrap();
-                if item.is_file() {
-                    let rpath = item.entity.as_ref().unwrap().to_str().unwrap();
-                    let path = resolve_path(rpath).unwrap();
-                    let contents = std::fs::read_to_string(&path);
-                    match contents {
-                        Ok(value) => { println!("{}", value); }
-                        Err(err) => { println!("{}", err); }
-                    }
-                }
-                else {
-                    return Err(
-                        std::io::Error::new(
-                            std::io::ErrorKind::NotFound,
-                            format!("{} is not a file.", arg),
-                        )
-                    )
-                }
+                tree.print_file(arg)?;
             }
             InputCommand::Touch => {
                 let name = &input.args[0];
@@ -207,22 +174,13 @@ fn enter(name: String) -> std::io::Result<()> {
                 tree.set_item_at(tree.path.path.clone(), item).unwrap();
             }
             InputCommand::Open => {
-                use open::that;
-                let name = &input.args[0];
-                let item = tree.current.get_offspring(&name).unwrap();
-                let path = resolve_path(item.entity.as_ref().unwrap().to_str().unwrap()).unwrap();
-                println!("Opening: {}", path.to_str().unwrap());
-                that(path)?;
+                tree.open_file(&input.args[0])?;
             }
             InputCommand::Mkdir => {
-                let mut item = tree.current.clone();
-                item.mkdir(&input.args[0]).unwrap();
-                tree.set_item_at(tree.path.path.clone(), item).unwrap();
+                tree.mkdir(&input.args[0]).unwrap();
             }
             InputCommand::Rm => {
-                let mut item = tree.current.clone();
-                item.rm(&input.args[0]).unwrap();
-                tree.set_item_at(tree.path.path.clone(), item).unwrap();
+                tree.rm(&input.args[0]).unwrap();
             }
             InputCommand::Exit => {
                 // TODO: save the tree to the json file.
