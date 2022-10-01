@@ -1,13 +1,7 @@
-use std::ops::Deref;
+use std::{ops::Deref, path::PathBuf};
 
 use super::error::{Result, TreeError};
 use serde::Deserialize;
-
-#[derive(Clone, Copy, Debug, Deserialize)]
-enum TreeItemType {
-    File,
-    Dir,
-}
 
 /// An item of a tree model.
 #[derive(Deserialize, Debug, Clone)]
@@ -15,16 +9,28 @@ pub struct TreeItem {
     pub name: String,  // Name of this item.
     children: Vec<Box<TreeItem>>,  // Children of this item.
     pub desc: Option<String>,  // Any description about this model.
-    // item_type: TreeItemType,  // Type of this item.
+    pub entity: Option<PathBuf>,  // The real path to the item.
 }
 
 // Implement functions that emulate file system operations.
 impl TreeItem {
-    pub fn new(name: String) -> Self {
+    /// Create a new empty item with given name.
+    fn new(name: String) -> Self {
         TreeItem {
             name,
             children: Vec::new(),
             desc: None,
+            entity: None,
+        }
+    }
+
+    /// Create a new item with file entity at given path.
+    fn new_file(name: String, path: PathBuf) -> Self {
+        TreeItem {
+            name,
+            children: Vec::new(),
+            desc: None,
+            entity: Some(path),
         }
     }
 
@@ -37,7 +43,7 @@ impl TreeItem {
 
     /// True if the tree item is a file.
     pub fn is_file(&self) -> bool {
-        self.children.len() == 0
+        self.entity.as_ref().unwrap().is_file()
     }
 
     /// True if the tree item is a directory.
@@ -45,9 +51,24 @@ impl TreeItem {
         !self.is_file()
     }
 
+    /// Iterate the children names of this item.
+    pub fn iter_children_names(&self) -> impl Iterator<Item = &String> {
+        self.children.iter().map(|x| &x.name)
+    }
+
     /// Get the vector of children names.
     pub fn children_names(&self) -> Vec<String> {
-        self.children.iter().map(|x| x.name.clone()).collect()
+        let names:Vec<String> = self.iter_children_names().map(|x| x.clone()).collect();
+        names
+    }
+
+    pub fn has(&self, name: &String) -> bool {
+        for each in &self.children {
+            if each.name == *name {
+                return true
+            }
+        }
+        false
     }
 
     /// Get a child item by its name.
@@ -98,6 +119,18 @@ impl TreeItem {
             }
         }
         return Err(TreeError::new(format!("No such file or directory: {}", name)))
+    }
+
+    pub fn new_item(&mut self, name: &String, path: PathBuf) -> Result<()> {
+        for child in &self.children {
+            if child.name == *name {
+                return Err(TreeError::new(format!("File or directory {} already exists.", name)))
+            }
+        }
+        let item = TreeItem::new_file(name.clone(), path);
+        let file = Box::new(item);
+        self.children.push(file);
+        Ok(())
     }
 
     /// Create a new directory named `name`.

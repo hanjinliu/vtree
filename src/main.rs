@@ -48,7 +48,7 @@ fn get_json_path(name: &String) -> std::io::Result<PathBuf> {
 }
 
 /// Resolve input path string and return a PathBuf with an absolute path.
-fn resolve_path(path: &String) -> std::io::Result<PathBuf> {
+fn resolve_path(path: &str) -> std::io::Result<PathBuf> {
     if path.starts_with(".") || path.starts_with("/") {
         let curdir = std::env::current_dir()?;
         let path = path.strip_prefix(".").unwrap().strip_prefix("/").unwrap();
@@ -158,11 +158,12 @@ fn enter(name: String) -> std::io::Result<()> {
                 let arg = &input.args[0];
                 let item = tree.current.get_offspring(&arg).unwrap();
                 if item.is_file() {
-                    let path = resolve_path(&item.name).unwrap();
+                    let rpath = item.entity.as_ref().unwrap().to_str().unwrap();
+                    let path = resolve_path(rpath).unwrap();
                     let contents = std::fs::read_to_string(&path);
                     match contents {
                         Ok(value) => { println!("{}", value); }
-                        Err(err) => { return Err(err); }
+                        Err(err) => { println!("{}", err); }
                     }
                 }
                 else {
@@ -173,6 +174,37 @@ fn enter(name: String) -> std::io::Result<()> {
                         )
                     )
                 }
+            }
+            InputCommand::Touch => {
+                let name = &input.args[0];
+                if tree.current.has(&name) {
+                    return Err(
+                        std::io::Error::new(
+                            std::io::ErrorKind::AlreadyExists,
+                            format!("{} already exists.", name),
+                        )
+                    )
+                }
+                let mut vpath_cand = get_vtree_path(true)?
+                    .join(_VIRTUAL_FILES)
+                    .join(name);
+                // find unique file name
+                let vpath_copy = vpath_cand.clone();
+                let stem = vpath_copy.file_stem().unwrap().to_str().unwrap();
+                let ext = vpath_copy.extension().unwrap().to_str().unwrap();
+                let mut count = 0;
+                let vpath = loop {
+                    if !vpath_cand.exists() {
+                        break vpath_cand;
+                    }
+                    let filename = format!("{}-{}.{}", stem, count, ext);
+                    vpath_cand = vpath_cand.parent().unwrap().join(filename);
+                    count += 1;
+                };
+                File::create(&vpath)?;
+                let mut item = tree.current.clone();
+                item.new_item(&name, vpath).unwrap();
+                tree.set_item_at(tree.path.path.clone(), item).unwrap();
             }
             InputCommand::Mkdir => {
                 let mut item = tree.current.clone();
@@ -185,6 +217,7 @@ fn enter(name: String) -> std::io::Result<()> {
                 tree.set_item_at(tree.path.path.clone(), item).unwrap();
             }
             InputCommand::Exit => {
+                // TODO: save the tree to the json file.
                 break;
             }
         }
