@@ -171,7 +171,7 @@ impl TreeModel {
         format!("/[{}]/{} > ", name, path)
     }
     
-    pub fn print_file(&self, arg: &String) -> std::io::Result<()>{
+    pub fn print_file(&self, arg: &String) -> Result<()>{
         let item = self.current.get_offspring(&arg).unwrap();
         if item.is_file() {
             let rpath = item.entity.as_ref().unwrap().to_str().unwrap();
@@ -185,20 +185,22 @@ impl TreeModel {
         }
         else {
             return Err(
-                std::io::Error::new(
-                    std::io::ErrorKind::NotFound,
+                TreeError::new(
                     format!("{} is not a file.", arg),
                 )
             )
         }
     }
 
-    pub fn open_file(&self, name: &String) -> std::io::Result<()> {
+    pub fn open_file(&self, name: &String) -> Result<()> {
         use open::that;
-        let item = self.current.get_offspring(&name).unwrap();
+        let item = self.current.get_offspring(&name)?;
         let path = resolve_path(item.entity.as_ref().unwrap().to_str().unwrap()).unwrap();
         println!("Opening: {}", path.to_str().unwrap());
-        that(path)
+        match that(path) {
+            Ok(_) => Ok(()),
+            Err(err) => Err(TreeError::new(format!("Error opening file: {}", err)))
+        }
     }
 
     pub fn mkdir(&mut self, name: &String) -> Result<()> {
@@ -242,6 +244,48 @@ impl TreeModel {
                 &path.file_name().unwrap().to_str().unwrap().to_string(), path
             )
         }
+    }
+
+    pub fn create_new_file(&mut self, name: &String, candidate: PathBuf) -> Result<()> {
+        if self.current.has(&name) {
+            return Err(TreeError::new(format!("{} already exists.", name)))
+        }
+        // find unique file name
+        let mut path = candidate.clone();
+        let vpath_copy = path.clone();
+        let stem = vpath_copy.file_stem().unwrap().to_str().unwrap();
+        let ext = match vpath_copy.extension() {
+            Some(ext) => ".".to_string() + ext.to_str().unwrap(),
+            None => {
+                "".to_string()
+            }
+        };
+        let mut count = 0;
+        // search for unique file name
+        let vpath = loop {
+            if !path.exists() {
+                break path;
+            }
+            let filename = format!("{}-{}{}", stem, count, ext);
+            path = match path.parent() {
+                Some(parent) => parent.join(filename),
+                None => {
+                    return Err(TreeError::new(format!("{} already exists.", name)))
+                }
+            };
+            count += 1;
+        };
+
+        // create a hidden file
+        match std::fs::File::create(&vpath) {
+            Ok(_) => {}
+            Err(err) => {
+                return Err(TreeError::new(format!("{}: {}", vpath.to_str().unwrap(), err)))
+            }
+        };
+        let mut item = self.current.clone();
+        item.add_item(&name, vpath)?;
+        self.set_item_at(self.path.path.clone(), item)
     }
 
 }

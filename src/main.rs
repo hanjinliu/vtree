@@ -116,13 +116,21 @@ fn enter(name: String) -> std::io::Result<()> {
 
     loop {
         let prefix = tree.as_prefix();
-        let input = Input::from_input(&prefix)?;
-        match input.cmd {
+        // get valid input
+        let input = match Input::from_input(&prefix){
+            Ok(input) => input,
+            Err(e) => {
+                println!("{}", e);
+                continue;
+            }
+        };
+        let output = match input.cmd {
             InputCommand::Cd => {
-                tree.move_by_string(&input.args[0]).unwrap();
+                tree.move_by_string(&input.args[0])
             }
             InputCommand::Tree => {
                 println!("{}", tree.current);
+                Ok(())
             }
             InputCommand::Ls => {
                 let name = {
@@ -133,56 +141,27 @@ fn enter(name: String) -> std::io::Result<()> {
                         Some(&input.args[0])
                     }
                 };
-                tree.ls_simple(name).unwrap();
+                tree.ls_simple(name)
             }
             InputCommand::Pwd => {
                 println!("./{}/{}", tree.root.name, tree.pwd());
+                Ok(())
             }
             InputCommand::Cat => {
                 let arg = &input.args[0];
-                tree.print_file(arg)?;
+                tree.print_file(arg)
             }
             InputCommand::Touch => {
                 let name = &input.args[0];
-                if tree.current.has(&name) {
-                    return Err(
-                        std::io::Error::new(
-                            std::io::ErrorKind::AlreadyExists,
-                            format!("{} already exists.", name),
-                        )
-                    )
-                }
-                let mut vpath_cand = get_vtree_path(true)?
+                
+                let vpath_cand = get_vtree_path(true)?
                     .join(_VIRTUAL_FILES)
                     .join(name);
                 // find unique file name
-                let vpath_copy = vpath_cand.clone();
-                let stem = vpath_copy.file_stem().unwrap().to_str().unwrap();
-                let ext = match vpath_copy.extension() {
-                    Some(ext) => ".".to_string() + ext.to_str().unwrap(),
-                    None => {
-                        "".to_string()
-                    }
-                };
-                let mut count = 0;
-                // search for unique file name
-                let vpath = loop {
-                    if !vpath_cand.exists() {
-                        break vpath_cand;
-                    }
-                    let filename = format!("{}-{}{}", stem, count, ext);
-                    vpath_cand = vpath_cand.parent().unwrap().join(filename);
-                    count += 1;
-                };
-
-                // create a hidden file
-                File::create(&vpath)?;
-                let mut item = tree.current.clone();
-                item.add_item(&name, vpath).unwrap();
-                tree.set_item_at(tree.path.path.clone(), item).unwrap();
+                tree.create_new_file(name, vpath_cand)
             }
             InputCommand::Open => {
-                tree.open_file(&input.args[0])?;
+                tree.open_file(&input.args[0])
             }
             InputCommand::Cp => {
                 let src = &input.args[0];
@@ -194,25 +173,38 @@ fn enter(name: String) -> std::io::Result<()> {
                         Some(&input.args[1])
                     }
                 };
-                tree.add_alias(dst, PathBuf::from(src)).unwrap();
+                tree.add_alias(dst, PathBuf::from(src))
             }
             InputCommand::Mkdir => {
-                tree.mkdir(&input.args[0]).unwrap();
+                tree.mkdir(&input.args[0])
             }
             InputCommand::Rm => {
                 let name = &input.args[0];
-                let item = tree.current.get_child(name).unwrap();
-                match &item.entity {
-                    Some(path) => {
-                        std::fs::remove_file(path)?;
+                match tree.current.get_child(name) {
+                    Ok(item) => {
+                        match &item.entity {
+                            Some(path) => {
+                                std::fs::remove_file(path)?;
+                            }
+                            None => {}
+                        }
                     }
-                    None => {}
-                }
-                tree.rm(name).unwrap();
+                    Err(err) => {
+                        println!("{}", err);
+                        continue;
+                    }
+                };
+                tree.rm(name)
             }
             InputCommand::Exit => {
                 tree.to_file(root.as_path())?;
                 break;
+            }
+        };
+        match output {
+            Ok(_) => {}
+            Err(e) => {
+                println!("{}", e);
             }
         }
     }

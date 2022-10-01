@@ -78,8 +78,13 @@ impl Input {
         for arg in iter {
             args.push(arg.to_string());
         }
-        let input_cmd = InputCommand::from_str(cmd.as_str()).unwrap();
-        Ok(Input{cmd: input_cmd, args: args})
+        match InputCommand::from_str(cmd.as_str()) {
+            Ok(cmd) => Ok(Input{cmd: cmd, args: args}),
+            Err(_) => Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!("Invalid command: {}", cmd),
+            )),
+        }
     }
 }
 
