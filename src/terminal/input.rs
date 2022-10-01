@@ -17,6 +17,7 @@ pub enum InputCommand {
     Pwd,
     Cat,
     Touch,
+    Open,
     Exit,
 }
 
@@ -31,6 +32,7 @@ impl std::fmt::Display for InputCommand {
             InputCommand::Pwd => write!(f, "pwd"),
             InputCommand::Cat => write!(f, "cat"),
             InputCommand::Touch => write!(f, "touch"),
+            InputCommand::Open => write!(f, "open"),
             InputCommand::Exit => write!(f, "exit"),
         }
     }
@@ -48,6 +50,7 @@ impl std::str::FromStr for InputCommand {
             "mkdir" => Ok(InputCommand::Mkdir),
             "rm"    => Ok(InputCommand::Rm),
             "touch" => Ok(InputCommand::Touch),
+            "open"  => Ok(InputCommand::Open),
             "exit"  => Ok(InputCommand::Exit),
             _       => Err(()),
         }

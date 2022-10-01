@@ -206,6 +206,14 @@ fn enter(name: String) -> std::io::Result<()> {
                 item.new_item(&name, vpath).unwrap();
                 tree.set_item_at(tree.path.path.clone(), item).unwrap();
             }
+            InputCommand::Open => {
+                use open::that;
+                let name = &input.args[0];
+                let item = tree.current.get_offspring(&name).unwrap();
+                let path = resolve_path(item.entity.as_ref().unwrap().to_str().unwrap()).unwrap();
+                println!("Opening: {}", path.to_str().unwrap());
+                that(path)?;
+            }
             InputCommand::Mkdir => {
                 let mut item = tree.current.clone();
                 item.mkdir(&input.args[0]).unwrap();

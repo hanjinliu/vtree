@@ -34,6 +34,7 @@ impl TreeItem {
         }
     }
 
+    /// Create a new item from a formatted json file.
     pub fn from_file(path: &std::path::Path) -> std::io::Result<Self> {
         let file = std::fs::File::open(path)?;
         let reader = std::io::BufReader::new(file);
@@ -43,7 +44,10 @@ impl TreeItem {
 
     /// True if the tree item is a file.
     pub fn is_file(&self) -> bool {
-        self.entity.as_ref().unwrap().is_file()
+        match &self.entity {
+            Some(path) => path.is_file(),
+            None => false,
+        }
     }
 
     /// True if the tree item is a directory.
@@ -62,6 +66,7 @@ impl TreeItem {
         names
     }
 
+    /// True if the item has a child with given name.
     pub fn has(&self, name: &String) -> bool {
         for each in &self.children {
             if each.name == *name {
@@ -71,8 +76,26 @@ impl TreeItem {
         false
     }
 
+    pub fn has_file(&self, name: &String) -> bool {
+        for each in &self.children {
+            if each.name == *name && each.is_file() {
+                return true
+            }
+        }
+        false
+    }
+
+    pub fn has_dir(&self, name: &String) -> bool {
+        for each in &self.children {
+            if each.name == *name && each.is_dir() {
+                return true
+            }
+        }
+        false
+    }
+
     /// Get a child item by its name.
-    pub fn get_child(&self, name: &String) -> Result<&TreeItem> {
+    fn get_child(&self, name: &String) -> Result<&TreeItem> {
         for each in &self.children {
             if each.name == *name {
                 return Ok(each)
@@ -81,14 +104,24 @@ impl TreeItem {
         return Err(TreeError::new(format!("No such file or directory: {}", name)))
     }
 
+    /// Get a child directory by its name.
+    fn get_child_dir(&self, name: &String) -> Result<&TreeItem> {
+        for each in &self.children {
+            if each.name == *name && each.is_dir() {
+                return Ok(each)
+            }
+        }
+        return Err(TreeError::new(format!("No such directory: {}", name)))
+    }
+
     /// Get a offspring item by its relative path from self.
     /// Unlike `get_child`, input such as "a/b/c" is allowed.
     pub fn get_offspring(&self, name: &String) -> Result<&TreeItem> {
         let mut child = self;
-        for filename in name.split('/').into_iter() {
+        for eachname in name.split('/').into_iter() {
             let mut found = false;
             for each in &child.children {
-                if each.name == *filename {
+                if each.name == *eachname {
                     child = each.as_ref();
                     found = true;
                     break;
@@ -135,10 +168,8 @@ impl TreeItem {
 
     /// Create a new directory named `name`.
     pub fn mkdir(&mut self, name: &String) -> Result<()>{
-        for child in &self.children {
-            if child.name == *name {
-                return Err(TreeError::new(format!("Directory {} already exists.", name)))
-            }
+        if self.has_dir(&name) {
+            return Err(TreeError::new(format!("Directory {} already exists.", name)))
         }
         let child = Box::new(TreeItem::new(name.clone()));
         self.children.push(child);
@@ -267,7 +298,7 @@ impl TreeModel {
     pub fn set_current(&mut self, path: PathVector) -> Result<()> {
         let mut current = &self.root;
         for name in &path.path {
-            current = current.get_child(name)?;
+            current = current.get_child_dir(name)?;
         }
         self.path = path;
         self.current = current.deref().clone();
@@ -314,7 +345,7 @@ impl TreeModel {
     }
 
     pub fn move_forward(&mut self, name: String) -> Result<()> {
-        let child = self.current.get_child(&name)?;
+        let child = self.current.get_child_dir(&name)?;
         self.current = child.clone();
         self.path = self.path.join_str(name);
         Ok(())
