@@ -76,6 +76,7 @@ impl TreeItem {
         false
     }
 
+    /// Check if this tree item has a child file with given name.
     pub fn has_file(&self, name: &String) -> bool {
         for each in &self.children {
             if each.name == *name && each.is_file() {
@@ -85,6 +86,7 @@ impl TreeItem {
         false
     }
 
+    /// Check if this tree item has a child directory with given name.
     pub fn has_dir(&self, name: &String) -> bool {
         for each in &self.children {
             if each.name == *name && each.is_dir() {
@@ -144,16 +146,6 @@ impl TreeItem {
         return Err(TreeError::new(format!("No such file or directory: {}", name)))
     }
 
-    pub fn update_child(&mut self, name: &String, new_child: TreeItem) -> Result<()> {
-        for child in &mut self.children {
-            if child.name == *name {
-                *child = Box::new(new_child);
-                return Ok(())
-            }
-        }
-        return Err(TreeError::new(format!("No such file or directory: {}", name)))
-    }
-
     /// Add a new file named `name` with entity at `path`.
     pub fn add_item(&mut self, name: &String, path: PathBuf) -> Result<()> {
         for child in &self.children {
@@ -190,7 +182,7 @@ impl TreeItem {
         return Err(TreeError::new(format!("No such file or directory: {}", name)))
     }
     
-    /// Return all the entites.
+    /// Return all the entities.
     pub fn values(&self) -> Vec<&Box<TreeItem>> {
         let mut values = Vec::new();
         for each in &self.children {
@@ -205,8 +197,6 @@ impl TreeItem {
         }
         values
     }
-
-    
 
     fn _fmt_with_indent(&self, f: &mut std::fmt::Formatter, level: usize) -> std::fmt::Result{
         let blk = " ".repeat(level * 4 - 3);

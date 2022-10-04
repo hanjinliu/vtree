@@ -256,7 +256,7 @@ fn list(contains: Option<String>) -> std::io::Result<()> {
     Ok(())
 }
 
-fn remove(name: String) -> std::io::Result<()> {
+fn remove(name: String, dry: bool) -> std::io::Result<()> {
     let path = get_json_path(&name)?;
     if !path.exists() {
         return Err(
@@ -271,36 +271,26 @@ fn remove(name: String) -> std::io::Result<()> {
     tree.values().iter().for_each(|item| {
         if let Some(path) = &item.entity {
             if path.parent().unwrap_or(std::path::Path::new("")).ends_with(_VIRTUAL_FILES) {
-                std::fs::remove_file(path).unwrap_or(());
+                if dry {
+                    println!("Remove: {}", path.display());
+                }
+                else {
+                    std::fs::remove_file(path).unwrap_or(());
+                }
             }
         }
     });
-    std::fs::remove_file(path)?;
+    
+    if dry {
+        println!("Remove: {}", path.display());
+    }
+    else {
+        std::fs::remove_file(path)?;
+    }
+    
     Ok(())
 }
 
-fn remove_dry(name: String) -> std::io::Result<()> {
-    let path = get_json_path(&name)?;
-    if !path.exists() {
-        return Err(
-            std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                format!("Virtual directory {} does not exist.", name),
-            )
-        );
-    }
-    // let tree = tree::TreeModel::from_file(&path)?;
-    let tree = TreeItem::from_file(&path)?;
-    tree.values().iter().for_each(|item| {
-        if let Some(path) = &item.entity {
-            if path.parent().unwrap_or(std::path::Path::new("")).ends_with(_VIRTUAL_FILES) {
-                println!("Remove: {}", path.display());
-            }
-        }
-    });
-    println!("Remove: {}", path.display());
-    Ok(())
-}
 
 fn main() {
     let args = VTree::from_args();
@@ -324,12 +314,7 @@ fn main() {
             list(contains).unwrap();
         }
         VTree::Remove { name, dry } => {
-            if dry {
-                remove_dry(name).unwrap();
-            }
-            else {
-                remove(name).unwrap();
-            }
+            remove(name, dry).unwrap();
         }
     };
 }

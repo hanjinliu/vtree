@@ -44,6 +44,9 @@ impl std::fmt::Display for InputCommand {
 
 impl std::str::FromStr for InputCommand {
     type Err = ();
+
+    /// Convert a string to an input command. This function is used to parse the input 
+    /// commands.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             ""      => Ok(InputCommand::NoCommand),
