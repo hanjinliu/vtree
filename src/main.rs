@@ -6,6 +6,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use structopt::StructOpt;
 use terminal::{Input, InputCommand};
+use tree::TreeItem;
 // use crate::error::VTreeError;
 
 
@@ -17,7 +18,12 @@ enum VTree {
     New {name: Option<String>},  // vtree new {name}: create a new virtual directory.
     Tree {name: String},  // vtree tree {name}: show the virtual directory tree.
     Enter {name: String},  // vtree enter {name}: enter the virtual directory.
-    List,  // vtree list: show all the names of virtual root trees.
+    List {contains: Option<String>},  // vtree list: show all the names of virtual root trees.
+    Remove {
+        name: String,
+        #[structopt(long)]
+        dry: bool,
+    },  // vtree remove {name}: remove a virtual root tree.
 }
 
 // Subdirectory names used in vtree
@@ -138,6 +144,9 @@ fn enter(name: String) -> std::io::Result<()> {
             }
         };
         let output = match input.cmd {
+            InputCommand::NoCommand => {
+                Ok(())
+            }
             InputCommand::Cd => {
                 tree.move_by_string(&input.args[0])
             }
@@ -223,21 +232,73 @@ fn enter(name: String) -> std::io::Result<()> {
     Ok(())
 }
 
-fn list() -> std::io::Result<()> {
+fn list(contains: Option<String>) -> std::io::Result<()> {
     let mut path = get_vtree_path(true)?;
+    let contains = match contains {
+        Some(s) => s,
+        None => "".to_string(),
+    };
     path.push(_TREES);
     // iterate all the json files and print each name and description.
     for entry in std::fs::read_dir(path)? {
         let entry = entry?;
         let path = entry.path();
         if path.is_file() {
-            let item = tree::TreeItem::from_file(&path)?;
-            match item.desc {
-                Some(value) => {println!("{}: {}", item.name, value);}
-                None => {println!("{}", item.name);}
+            if contains == "" || path.file_name().unwrap().to_str().unwrap().contains(&contains){
+                let item = tree::TreeItem::from_file(&path)?;
+                match item.desc {
+                    Some(value) => {println!("{}: {}", item.name, value);}
+                    None => {println!("{}", item.name);}
+                }
             }
         }
     }
+    Ok(())
+}
+
+fn remove(name: String) -> std::io::Result<()> {
+    let path = get_json_path(&name)?;
+    if !path.exists() {
+        return Err(
+            std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!("Virtual directory {} does not exist.", name),
+            )
+        );
+    }
+    // let tree = tree::TreeModel::from_file(&path)?;
+    let tree = TreeItem::from_file(&path)?;
+    tree.values().iter().for_each(|item| {
+        if let Some(path) = &item.entity {
+            if path.parent().unwrap_or(std::path::Path::new("")).ends_with(_VIRTUAL_FILES) {
+                std::fs::remove_file(path).unwrap_or(());
+            }
+        }
+    });
+    std::fs::remove_file(path)?;
+    Ok(())
+}
+
+fn remove_dry(name: String) -> std::io::Result<()> {
+    let path = get_json_path(&name)?;
+    if !path.exists() {
+        return Err(
+            std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!("Virtual directory {} does not exist.", name),
+            )
+        );
+    }
+    // let tree = tree::TreeModel::from_file(&path)?;
+    let tree = TreeItem::from_file(&path)?;
+    tree.values().iter().for_each(|item| {
+        if let Some(path) = &item.entity {
+            if path.parent().unwrap_or(std::path::Path::new("")).ends_with(_VIRTUAL_FILES) {
+                println!("Remove: {}", path.display());
+            }
+        }
+    });
+    println!("Remove: {}", path.display());
     Ok(())
 }
 
@@ -259,8 +320,16 @@ fn main() {
         VTree::Enter { name } => {
             enter(name).unwrap();
         }
-        VTree::List => {
-            list().unwrap();
+        VTree::List { contains } => {
+            list(contains).unwrap();
+        }
+        VTree::Remove { name, dry } => {
+            if dry {
+                remove_dry(name).unwrap();
+            }
+            else {
+                remove(name).unwrap();
+            }
         }
     };
 }

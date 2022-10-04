@@ -9,6 +9,7 @@ pub fn input() -> std::io::Result<String> {
 
 /// Available input commands.
 pub enum InputCommand {
+    NoCommand,
     Cd,
     Tree,
     Ls,
@@ -25,6 +26,7 @@ pub enum InputCommand {
 impl std::fmt::Display for InputCommand {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
+            InputCommand::NoCommand => write!(f, ""),
             InputCommand::Cd   => write!(f, "cd"),
             InputCommand::Tree => write!(f, "tree"),
             InputCommand::Ls => write!(f, "ls"),
@@ -44,6 +46,7 @@ impl std::str::FromStr for InputCommand {
     type Err = ();
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
+            ""      => Ok(InputCommand::NoCommand),
             "cd"    => Ok(InputCommand::Cd),
             "tree"  => Ok(InputCommand::Tree),
             "ls"    => Ok(InputCommand::Ls),
@@ -73,7 +76,7 @@ impl Input {
         let _ = std::io::stdout().flush();
         let val = input()?;
         let mut iter = val.split_whitespace();
-        let cmd = iter.next().unwrap().to_string();
+        let cmd = iter.next().unwrap_or("").to_string();
         let mut args: Vec<String> = Vec::new();
         for arg in iter {
             args.push(arg.to_string());

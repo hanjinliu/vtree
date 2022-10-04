@@ -154,6 +154,7 @@ impl TreeItem {
         return Err(TreeError::new(format!("No such file or directory: {}", name)))
     }
 
+    /// Add a new file named `name` with entity at `path`.
     pub fn add_item(&mut self, name: &String, path: PathBuf) -> Result<()> {
         for child in &self.children {
             if child.name == *name {
@@ -188,6 +189,24 @@ impl TreeItem {
         }
         return Err(TreeError::new(format!("No such file or directory: {}", name)))
     }
+    
+    /// Return all the entites.
+    pub fn values(&self) -> Vec<&Box<TreeItem>> {
+        let mut values = Vec::new();
+        for each in &self.children {
+            match &each.entity {
+                Some(_) => values.push(each),
+                None => {
+                    for sub in each.values() {
+                        values.push(&sub);
+                    }
+                }
+            }
+        }
+        values
+    }
+
+    
 
     fn _fmt_with_indent(&self, f: &mut std::fmt::Formatter, level: usize) -> std::fmt::Result{
         let blk = " ".repeat(level * 4 - 3);
@@ -197,6 +216,7 @@ impl TreeItem {
         }
         Ok(())
     }
+
 }
 
 // Implement functions that format the tree item.
