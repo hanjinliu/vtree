@@ -215,6 +215,12 @@ impl TreeModel {
         self.set_item_at(self.path.path.clone(), item)
     }
 
+    pub fn set_desc(&mut self, desc: &String) -> Result<()> {
+        let mut item = self.current.clone();
+        item.desc = Some(desc.to_string());
+        self.set_item_at(self.path.path.clone(), item)
+    }
+
     pub fn ls_simple(&self, name: Option<&String>) -> Result<()> {
         let item = match name {
             Some(name) => {

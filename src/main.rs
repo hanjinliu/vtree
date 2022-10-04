@@ -196,6 +196,21 @@ fn enter(name: String) -> std::io::Result<()> {
                 };
                 tree.add_alias(dst, PathBuf::from(src))
             }
+            InputCommand::Desc => {
+                let item = tree.current.clone();  // TODO: avoid cloning
+                match input.args.get(0) {
+                    Some(desc) => {
+                        tree.set_desc(desc).unwrap();
+                    }
+                    None => {
+                        match item.desc {
+                            Some(desc) => println!("{}", desc),
+                            None => println!("No description."),
+                        }
+                    }
+                }
+                Ok(())
+            }
             InputCommand::Mkdir => {
                 tree.mkdir(&input.args[0])
             }
@@ -268,9 +283,11 @@ fn remove(name: String, dry: bool) -> std::io::Result<()> {
     }
     // let tree = tree::TreeModel::from_file(&path)?;
     let tree = TreeItem::from_file(&path)?;
-    tree.values().iter().for_each(|item| {
+    let default = std::path::Path::new("");
+
+    for item in &tree.values() {
         if let Some(path) = &item.entity {
-            if path.parent().unwrap_or(std::path::Path::new("")).ends_with(_VIRTUAL_FILES) {
+            if path.parent().unwrap_or(default).ends_with(_VIRTUAL_FILES) {
                 if dry {
                     println!("Remove: {}", path.display());
                 }
@@ -279,7 +296,7 @@ fn remove(name: String, dry: bool) -> std::io::Result<()> {
                 }
             }
         }
-    });
+    };
     
     if dry {
         println!("Remove: {}", path.display());
