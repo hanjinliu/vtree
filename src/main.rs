@@ -211,6 +211,9 @@ fn enter(name: String) -> std::io::Result<()> {
                 }
                 Ok(())
             }
+            InputCommand::Call => {
+                tree.call_command(&input.args)
+            }
             InputCommand::Mkdir => {
                 tree.mkdir(&input.args[0])
             }

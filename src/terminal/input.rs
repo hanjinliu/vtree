@@ -1,5 +1,6 @@
 use std::io::Write;
 use std::str::FromStr;
+use super::parser::parse_string;
 
 pub fn input() -> std::io::Result<String> {
     let mut val = String::new();
@@ -20,6 +21,7 @@ pub enum InputCommand {
     Touch,
     Open,
     Cp,
+    Call,
     Desc,
     Exit,
 }
@@ -38,6 +40,7 @@ impl std::fmt::Display for InputCommand {
             InputCommand::Touch => write!(f, "touch"),
             InputCommand::Open => write!(f, "open"),
             InputCommand::Cp => write!(f, "cp"),
+            InputCommand::Call => write!(f, "call"),
             InputCommand::Desc => write!(f, "desc"),
             InputCommand::Exit => write!(f, "exit"),
         }
@@ -62,6 +65,7 @@ impl std::str::FromStr for InputCommand {
             "touch" => Ok(InputCommand::Touch),
             "open"  => Ok(InputCommand::Open),
             "cp"    => Ok(InputCommand::Cp),
+            "call"  => Ok(InputCommand::Call),
             "desc"  => Ok(InputCommand::Desc),
             "exit"  => Ok(InputCommand::Exit),
             _       => Err(()),
@@ -81,8 +85,9 @@ impl Input {
         print!("{}", prefix);
         let _ = std::io::stdout().flush();
         let val = input()?;
-        let mut iter = val.split_whitespace();
-        let cmd = iter.next().unwrap_or("").to_string();
+        let vec = parse_string(&val);
+        let mut iter = vec.iter();
+        let cmd = iter.next().unwrap_or(&"".to_string()).to_string();
         let mut args: Vec<String> = Vec::new();
         for arg in iter {
             args.push(arg.to_string());

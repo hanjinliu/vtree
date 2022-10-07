@@ -1,5 +1,5 @@
 use super::{tree_item::TreeItem, error::TreeError};
-use std::{ops::Deref, path::PathBuf};
+use std::{ops::Deref, path::PathBuf, process::Command};
 use std::io::Write;
 use super::error::{Result};
 
@@ -172,7 +172,7 @@ impl TreeModel {
     }
     
     pub fn print_file(&self, arg: &String) -> Result<()>{
-        let item = self.current.get_offspring(&arg).unwrap();
+        let item = self.current.get_offspring(&arg)?;
         if item.is_file() {
             let rpath = item.entity.as_ref().unwrap().to_str().unwrap();
             let path = resolve_path(rpath).unwrap();
@@ -296,10 +296,39 @@ impl TreeModel {
         self.set_item_at(self.path.path.clone(), item)
     }
 
+    pub fn call_command(&self, inputs: &Vec<String>) -> Result<()> {
+        let mut output: Vec<String> = Vec::new();
+        for arg in inputs {
+            let abspath = resolve_path(arg);
+            match abspath {
+                Ok(abspath) => {
+                    output.push(abspath.to_str().unwrap().to_string());
+                }
+                Err(_) => {
+                    output.push(arg.to_string());
+                }
+            }
+        }
+        println!("Calling: {}", output.join(" "));
+        let cmd = if cfg!(target_os = "windows") {
+            let mut args = vec!("/C".to_string());
+            args.extend(output);
+            Command::new("cmd").args(&args).spawn()
+        }
+        else {
+            Command::new(&output[0]).args(&output[1..]).spawn()
+        };
+        
+        match cmd {
+            Ok(_) => Ok(()),
+            Err(err) => Err(TreeError::new(format!("Error calling command: {}", err)))
+        }
+    }
+
 }
 
-
 /// Resolve input path string (must exist) and return a PathBuf with an absolute path.
+/// Input string can be a relative path in the virtual directory or an existing absolute path.
 fn resolve_path(path: &str) -> std::io::Result<PathBuf> {
     if path.starts_with(".") || path.starts_with("/") {
         let curdir = std::env::current_dir()?;
