@@ -5,7 +5,7 @@ use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 use structopt::StructOpt;
-use terminal::{Input, InputCommand};
+use terminal::VCommand;
 use tree::TreeItem;
 // use crate::error::VTreeError;
 
@@ -136,90 +136,117 @@ fn enter(name: String) -> std::io::Result<()> {
     loop {
         let prefix = tree.as_prefix();
         // get valid input
-        let input = match Input::from_input(&prefix){
+        let input = match VCommand::from_line(&prefix){
             Ok(input) => input,
             Err(e) => {
                 println!("{}", e);
                 continue;
             }
         };
-        let output = match input.cmd {
-            InputCommand::NoCommand => {
+        let output = match input {
+            VCommand::Empty => {
                 Ok(())
             }
-            InputCommand::Cd => {
-                tree.move_by_string(&input.args[0])
-            }
-            InputCommand::Tree => {
-                println!("{}", tree.current);
-                Ok(())
-            }
-            InputCommand::Ls => {
-                let name = {
-                    if input.args.len() == 0 {
-                        None
-                    }
-                    else {
-                        Some(&input.args[0])
-                    }
-                };
-                tree.ls_simple(name)
-            }
-            InputCommand::Pwd => {
-                println!("./{}/{}", tree.root.name, tree.pwd());
-                Ok(())
-            }
-            InputCommand::Cat => {
-                let arg = &input.args[0];
-                tree.print_file(arg)
-            }
-            InputCommand::Touch => {
-                let name = &input.args[0];
-                let vpath_cand = get_relative_vtree_path(true)?
-                    .join(_VIRTUAL_FILES)
-                    .join(name);
-                // find unique file name
-                tree.create_new_file(name, vpath_cand)
-            }
-            InputCommand::Open => {
-                tree.open_file(&input.args[0])
-            }
-            InputCommand::Cp => {
-                let src = &input.args[0];
-                let dst = {
-                    if input.args.len() == 1 {
-                        None
-                    }
-                    else {
-                        Some(&input.args[1])
-                    }
-                };
-                tree.add_alias(dst, PathBuf::from(src))
-            }
-            InputCommand::Desc => {
-                let item = tree.current.clone();  // TODO: avoid cloning
-                match input.args.get(0) {
-                    Some(desc) => {
-                        tree.set_desc(desc).unwrap();
+            VCommand::Cd { name } => {
+                match name {
+                    Some(path) => {
+                        tree.move_by_string(&path)
                     }
                     None => {
-                        match item.desc {
-                            Some(desc) => println!("{}", desc),
-                            None => println!("No description."),
+                        tree.move_to_home()
+                    }
+                }
+            
+            }
+            VCommand::Tree { name } => {
+                match name {
+                    Some(name) => {
+                        match tree.current.get_offspring(&name){
+                            Ok(item) => {
+                                println!("{}", item)
+                            }
+                            Err(e) => {
+                                println!("{}", e)
+                            }
                         }
+                    }
+                    None => {
+                        println!("{}", tree.current);
                     }
                 }
                 Ok(())
             }
-            InputCommand::Call => {
-                tree.call_command(&input.args)
+            VCommand::Ls { name, desc } => {
+                let str = if desc {
+                    tree.ls_with_desc(name)
+                }
+                else {
+                    tree.ls_simple(name)
+                };
+                match str {
+                    Ok(s) => {
+                        println!("{}", s);
+                        Ok(())
+                    }
+                    Err(e) => {
+                        Err(e)
+                    }
+                }
             }
-            InputCommand::Mkdir => {
-                tree.mkdir(&input.args[0])
+            VCommand::Pwd => {
+                println!("./{}/{}", tree.root.name, tree.pwd());
+                Ok(())
             }
-            InputCommand::Rm => {
-                let name = &input.args[0];
-                match tree.current.get_child(name) {
+            VCommand::Cat { name } => {
+                tree.print_file(&name)
+            }
+            VCommand::Touch { name } => {
+                let vpath_cand = get_relative_vtree_path(true)?
+                    .join(_VIRTUAL_FILES)
+                    .join(name.clone());
+                // find unique file name
+                tree.create_new_file(&name, vpath_cand)
+            }
+            VCommand::Open { name } => {
+                tree.open_file(&name)
+            }
+            VCommand::Cp { src, dst } => {
+                tree.add_alias(dst, PathBuf::from(src))
+            }
+            VCommand::Desc { name, desc } => {
+                let mut item = match name {
+                    Some(name) => {
+                        match tree.current.get_child_mut(&name){
+                            Ok(item) => item,
+                            Err(e) => {
+                                println!("{}", e);
+                                continue;
+                            },
+                        }
+                    }
+                    None => {
+                        &mut tree.current
+                    }
+                };
+                match desc {
+                    Some(desc) => {
+                        // let mut item = item.clone();
+                        item.desc = Some(desc);
+                    }
+                    None => {
+                        println!("{}", item.desc.as_ref().unwrap_or(&"".to_string()));
+                    }
+                }
+                Ok(())
+            }
+            VCommand::Call { vec } => {
+                tree.call_command(&vec)
+            }
+            VCommand::Mkdir { name } => {
+                tree.mkdir(&name)
+            }
+            VCommand::Rm { name } => {
+                match tree.current.get_child(&name) {
                     Ok(item) => {
                         match &item.entity {
                             Some(path) => {
@@ -233,9 +260,9 @@ fn enter(name: String) -> std::io::Result<()> {
                         continue;
                     }
                 };
-                tree.rm(name)
+                tree.rm(&name)
             }
-            InputCommand::Exit => {
+            VCommand::Exit => {
                 tree.to_file(root.as_path())?;
                 break;
             }
@@ -249,6 +276,7 @@ fn enter(name: String) -> std::io::Result<()> {
     }
     Ok(())
 }
+
 
 fn list(contains: Option<String>) -> std::io::Result<()> {
     let mut path = get_vtree_path(true)?;

@@ -129,11 +129,6 @@ impl TreeModel {
         Ok(())
     }
 
-    pub fn to_home(&mut self) {
-        self.current = self.root.clone();
-        self.path = PathVector::new();
-    }
-
     /// Return the current path.
     pub fn pwd(&self) -> String {
         self.path.as_str()
@@ -149,6 +144,10 @@ impl TreeModel {
     pub fn move_backward(&mut self, level: usize) -> Result<()> {
         let path = self.path.clone().pops(level);
         self.set_current(path)
+    }
+
+    pub fn move_to_home(&mut self) -> Result<()> {
+        self.set_current(PathVector::new())
     }
 
     pub fn move_by_string(&mut self, path: &String) -> Result<()> {
@@ -215,28 +214,59 @@ impl TreeModel {
         self.set_item_at(self.path.path.clone(), item)
     }
 
-    pub fn set_desc(&mut self, desc: &String) -> Result<()> {
-        let mut item = self.current.clone();
-        item.desc = Some(desc.to_string());
-        self.set_item_at(self.path.path.clone(), item)
-    }
+    // pub fn set_desc(&mut self, path: Option<Vec<String>>, desc: &String) -> Result<()> {
+    //     let mut item = match path {
+    //         Some(path) => self.item_at_mut(&path)?.clone(),
+    //         None => self.current.clone()
+    //     };
+    //     item.desc = Some(desc.to_string());
+    //     let path = match path {
+    //         Some(path) => path,
+    //         None => self.path.path.clone()
+    //     };
+    //     self.set_item_at(path, item)
+    // }
 
-    pub fn ls_simple(&self, name: Option<&String>) -> Result<()> {
-        let item = match name {
+    fn offspring_at(&self, name: Option<String>) -> Result<&TreeItem> {
+        match name {
             Some(name) => {
-                self.current.get_offspring(&name)?
+                self.current.get_offspring(&name)
             }
             None => {
-                &self.current
+                Ok(&self.current)
             }
-        };
-        
-        let children: Vec<String> = item.children_names();
-        println!("{}", children.join(" "));
-        Ok(())
+        }
     }
 
-    pub fn add_alias(&mut self, name: Option<&String>, path: PathBuf) -> Result<()> {
+    pub fn ls_simple(&self, name: Option<String>) -> Result<String> {
+        let item = self.offspring_at(name)?;
+        let children: Vec<String> = item.children_names();
+        Ok(children.join(" "))
+    }
+
+    pub fn ls_with_desc(&self, name: Option<String>) -> Result<String> {
+        let item = self.offspring_at(name)?;
+        let mut name_vec: Vec<String> = Vec::new();
+        let mut desc_vec: Vec<String> = Vec::new();
+        for child in item.clone() {
+            name_vec.push(child.name);
+            desc_vec.push(child.desc.unwrap_or("".to_string()));
+        }
+        // find longest name to align descriptions
+        let mut max_len = 0;
+        for name in &name_vec {
+            if name.len() > max_len {
+                max_len = name.len();
+            }
+        }
+        let mut pair_vec: Vec<String> = Vec::new();
+        for (name, desc) in name_vec.iter().zip(desc_vec.iter()) {
+            pair_vec.push(format!("{:>width$} {}", name, desc, width=max_len));
+        }
+        Ok(pair_vec.join("\n"))
+    }
+
+    pub fn add_alias(&mut self, name: Option<String>, path: PathBuf) -> Result<()> {
         if !path.exists() {
             return Err(
                 TreeError::new(
@@ -246,7 +276,7 @@ impl TreeModel {
         }
         let mut item = self.current.clone();
         match name {
-            Some(name) => item.add_item(name, path)?,
+            Some(name) => item.add_item(&name, path)?,
             None => item.add_item(
                 &path.file_name().unwrap().to_str().unwrap().to_string(), path
             )?

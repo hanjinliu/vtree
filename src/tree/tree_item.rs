@@ -120,7 +120,7 @@ impl TreeItem {
     /// Unlike `get_child`, input such as "a/b/c" is allowed.
     pub fn get_offspring(&self, name: &String) -> Result<&TreeItem> {
         let mut child = self;
-        for eachname in name.split('/').into_iter() {
+        for eachname in name.replace("\\", "/").split('/').into_iter() {
             let mut found = false;
             for each in &child.children {
                 if each.name == *eachname {
@@ -181,7 +181,7 @@ impl TreeItem {
         }
         return Err(TreeError::new(format!("No such file or directory: {}", name)))
     }
-    
+
     /// Return all the entities.
     pub fn values(&self) -> Vec<&Box<TreeItem>> {
         let mut values = Vec::new();
