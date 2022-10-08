@@ -82,4 +82,12 @@ mod tests {
         );
     }
     
+    #[test]
+    fn test_parse_quote_not_closed() {
+        let val = parse_string(&"cd \"dir name".to_string());
+        assert_eq!(
+            val,
+            vec!["cd".to_string(), "dir name".to_string()]
+        );
+    }
 }

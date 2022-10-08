@@ -37,19 +37,23 @@ pub enum VCommand {
 }
 
 impl VCommand {
-    pub fn from_line(prefix: &String) -> std::result::Result<Self, structopt::clap::Error> {
-        print!("{}", prefix);
-        let _ = std::io::stdout().flush();
-        let val = input()?;
+    pub fn from_string(val: &String) -> std::result::Result<Self, structopt::clap::Error> {
         if val.trim().len() == 0 {
             return Ok(VCommand::Empty);
         }
         let mut args = vec![String::from("virtual-command")];
-        for arg in parse_string(&val) {
+        for arg in parse_string(val) {
             if arg.len() > 0 {
                 args.push(arg);
             }
         }
-        VCommand::from_iter_safe(&args)
+        Self::from_iter_safe(&args)
+    }
+
+    pub fn from_line(prefix: &String) -> std::result::Result<Self, structopt::clap::Error> {
+        print!("{}", prefix);
+        let _ = std::io::stdout().flush();
+        let val = input()?;
+        Self::from_string(&val)
     }
 }
