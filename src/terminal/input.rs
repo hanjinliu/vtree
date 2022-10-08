@@ -44,9 +44,11 @@ impl VCommand {
         if val.trim().len() == 0 {
             return Ok(VCommand::Empty);
         }
-        let mut args = vec![String::from("vcommand")];
+        let mut args = vec![String::from("virtual-command")];
         for arg in parse_string(&val) {
-            args.push(arg);
+            if arg.len() > 0 {
+                args.push(arg);
+            }
         }
         VCommand::from_iter_safe(&args)
     }
