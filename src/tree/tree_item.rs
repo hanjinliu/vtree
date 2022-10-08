@@ -199,11 +199,36 @@ impl TreeItem {
     }
 
     fn _fmt_with_indent(&self, f: &mut std::fmt::Formatter, level: usize) -> std::fmt::Result{
-        let blk = " ".repeat(level * 4 - 3);
-        write!(f, " {}|- {}\n", blk, self.name)?;
-        for child in &self.children {
+        let blk = "│  ".repeat(level - 1);
+        write!(f, "  {}├─ {}\n", blk, self.name)?;
+        let nch = self.children.len();
+        if nch == 0 {
+            return Ok(())
+        }
+        let mut iter = self.children.iter();
+        for _ in 0..nch-1 {
+            let child = iter.next().unwrap();
             child._fmt_with_indent(f, level + 1)?;
         }
+        let child = iter.next().unwrap();
+        child._fmt_with_indent_last(f, level + 1)?;
+        Ok(())
+    }
+
+    fn _fmt_with_indent_last(&self, f: &mut std::fmt::Formatter, level: usize) -> std::fmt::Result{
+        let blk = "│  ".repeat(level - 1);
+        write!(f, "  {}└─ {}\n", blk, self.name)?;
+        let nch = self.children.len();
+        if nch == 0 {
+            return Ok(())
+        }
+        let mut iter = self.children.iter();
+        for _ in 0..nch-1 {
+            let child = iter.next().unwrap();
+            child._fmt_with_indent(f, level + 1)?;
+        }
+        let child = iter.next().unwrap();
+        child._fmt_with_indent_last(f, level + 1)?;
         Ok(())
     }
 
@@ -213,9 +238,14 @@ impl TreeItem {
 impl std::fmt::Display for TreeItem {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}\n", self.name)?;
-        for child in &self.children {
+        let nch = self.children.len();
+        let mut iter = self.children.iter();
+        for _ in 0..nch-1 {
+            let child = iter.next().unwrap();
             child._fmt_with_indent(f, 1)?;
         }
+        let child = iter.next().unwrap();
+        child._fmt_with_indent_last(f, 1)?;
         Ok(())
     }
 }
