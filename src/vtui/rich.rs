@@ -90,6 +90,15 @@ impl RichLine {
         self.texts.iter()
     }
 
+    /// Return the unstyled String.
+    pub fn raw_text(&self) -> String {
+        let mut text = String::new();
+        for t in &self.texts {
+            text.push_str(&t.text);
+        }
+        text
+    }
+
     /// Join two RichLines.
     pub fn join(&self, other: Self) -> Self {
         Self {texts: [&self.texts[..], &other.texts[..]].concat()}
@@ -100,11 +109,10 @@ impl RichLine {
         self.texts.extend(line.texts);
     }
 
-    /// Partially change the style.
+    /// Partially change the style of the texts.
     pub fn restyled(&self, start: usize, end: usize, style: Style) -> Self {
         let mut pos = 0;
-        let mut idx_start = -1;
-        let mut idx_end = -1;
+        let mut sl = -1..-1;
         let mut start_residue = 0;
         let mut end_residue = 0;
         
@@ -112,35 +120,35 @@ impl RichLine {
         for (idx, rtext) in self.texts.iter().enumerate() {
             let next_pos = pos + rtext.len();
             if next_pos <= start {
+                pos = next_pos;
                 continue;
             }
-            if idx_start < 0 {
+            if sl.start < 0 {
                 start_residue = start - pos;
-                idx_start = idx as i32;
+                sl.start = idx as i32;
             }
             
             if next_pos >= end {
                 end_residue = end - pos;
-                idx_end = idx as i32 + 1;
+                sl.end = idx as i32 + 1;
                 break;
             }
             pos = next_pos;
         }
         
         // Update the style
-        let idx_start = idx_start as usize;
-        let idx_end = idx_end as usize;
+        let sl = sl.start as usize..sl.end as usize;
         let mut updated = Vec::new();
         let new_texts = 
-            if idx_start == idx_end - 1 {
+            if sl.start == sl.end - 1 {
                 let (rt0, rt1, rt2) = self
-                    .texts[idx_start].
+                    .texts[sl.start].
                     split3_at(start_residue, end_residue);
                 updated.extend([rt0, rt1.restyled(style), rt2]);
-                vec![&self.texts[..idx_start], &updated, &self.texts[idx_end..]]
+                vec![&self.texts[..sl.start], &updated, &self.texts[sl.end..]]
             } else {
-                let niter = idx_end - idx_start;
-                let mut iter = self.texts[idx_start..idx_end].iter();
+                let niter = sl.len();
+                let mut iter = self.texts[sl.clone()].iter();
 
                 // First text
                 let (rt0, rt1) = iter.next().unwrap().split_at(start_residue);
@@ -157,7 +165,7 @@ impl RichLine {
                 let (rt1, rt2) = iter.next().unwrap().split_at(end_residue);
                 updated.push(rt1.restyled(style));
                 updated.push(rt2);
-                vec![&self.texts[..idx_start], &updated[..], &self.texts[idx_end..]]
+                vec![&self.texts[..sl.start], &updated[..], &self.texts[sl.end..]]
             };
         
         Self { texts: new_texts.concat() }
@@ -177,5 +185,73 @@ impl From<Vec<String>> for RichLine {
             .map(|text| RichText::new(text, Color::White))
             .collect();
         Self { texts }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_rich_text() {
+        let text = RichText::new("Hello World".to_string(), Color::White);
+        assert_eq!(text.len(), 11);
+        assert_eq!(text.text, "Hello World");
+        assert_eq!(text.style.fg, Some(Color::White));
+        assert_eq!(text.style.bg, None);
+        assert_eq!(text.style.add_modifier, Modifier::empty());
+        assert_eq!(text.style.sub_modifier, Modifier::empty());
+    }
+
+    #[test]
+    fn test_rich_text_split_at() {
+        let text = RichText::new("Hello World".to_string(), Color::White);
+        let (left, right) = text.split_at(5);
+        assert_eq!(left.text, "Hello");
+        assert_eq!(right.text, " World");
+    }
+
+    #[test]
+    fn test_rich_text_split3_at() {
+        let text = RichText::new("Hello World".to_string(), Color::White);
+        let (left, middle, right) = text.split3_at(5, 7);
+        assert_eq!(left.text, "Hello");
+        assert_eq!(middle.text, " W");
+        assert_eq!(right.text, "orld");
+    }
+
+    #[test]
+    fn test_rich_text_restyled() {
+        let text = RichText::new("Hello World".to_string(), Color::White);
+        let text = text.restyled(Style::default().fg(Color::Red));
+        assert_eq!(text.text, "Hello World");
+        assert_eq!(text.style.fg, Some(Color::Red));
+        assert_eq!(text.style.bg, None);
+        assert_eq!(text.style.add_modifier, Modifier::empty());
+        assert_eq!(text.style.sub_modifier, Modifier::empty());
+    }
+
+    #[test]
+    fn test_rich_line() {
+        let line = RichLine::new();
+        assert_eq!(line.texts.len(), 0);
+    }
+
+    #[test]
+    fn test_rich_line_push() {
+        let mut line = RichLine::new();
+        line.push(RichText::new("Hello World".to_string(), Color::White));
+        assert_eq!(line.texts.len(), 1);
+        assert_eq!(line.texts[0].text, "Hello World");
+        assert_eq!(line.texts[0].style.fg, Some(Color::White));
+    }
+
+    #[test]
+    fn test_rich_line_restyled_raw_text() {
+        let line = RichLine::from(vec!["Hello ".to_string(), "World".to_string()]);
+        assert_eq!(line.raw_text(), "Hello World");
+        assert_eq!(line.restyled(1, 3, Style::default().fg(Color::Red)).raw_text(), "Hello World");
+        assert_eq!(line.restyled(1, 8, Style::default().fg(Color::Red)).raw_text(), "Hello World");
+        assert_eq!(line.restyled(7, 8, Style::default().fg(Color::Red)).raw_text(), "Hello World");
     }
 }

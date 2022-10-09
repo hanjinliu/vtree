@@ -121,7 +121,11 @@ impl App {
         let strs = parse_string_with_quote(&self.buffer);
         let nstr = strs.len();
         if nstr == 0 {
-            return RichLine::new();
+            let text = RichText::new(" ".to_string(), Color::Black)
+                .restyled(Style::default().bg(Color::Rgb(108, 108, 108)));
+            let mut line = RichLine::new();
+            line.push(text);
+            return line;
         }
         else {
             let cmd = RichText::new(
@@ -143,7 +147,23 @@ impl App {
             // style selected text
             if self.cursor.selection_size() > 0 {
                 let (start, end) = self.cursor.selection();
-                line = line.restyled(start, end, Style::default().fg(Color::Black).bg(Color::Gray));
+                line = line.restyled(
+                    start, end,
+                    Style::default().fg(Color::Black).bg(Color::Rgb(128, 128, 128))
+                );
+            }
+            // style cursor
+            if self.cursor.pos < self.buffer.len() {
+                line = line.restyled(
+                    self.cursor.pos, self.cursor.pos + 1,
+                    Style::default().fg(Color::Black).bg(Color::Rgb(108, 108, 108))
+                );
+            } else {
+                line.push(RichText::new(" ".to_string(), Color::Black));
+                line = line.restyled(
+                    self.cursor.pos, self.cursor.pos + 1,
+                    Style::default().fg(Color::Black).bg(Color::Rgb(108, 108, 108))
+                );
             }
             return line;
         }
