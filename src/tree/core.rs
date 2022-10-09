@@ -238,12 +238,14 @@ impl TreeModel {
         }
     }
 
+    /// Return the text for "ls" command.
     pub fn ls_simple(&self, name: Option<String>) -> Result<String> {
         let item = self.offspring_at(name)?;
         let children: Vec<String> = item.children_names();
         Ok(children.join(" "))
     }
 
+    /// Return the text for "ls --desc" command.
     pub fn ls_with_desc(&self, name: Option<String>) -> Result<String> {
         let item = self.offspring_at(name)?;
         let mut name_vec: Vec<String> = Vec::new();
@@ -266,6 +268,7 @@ impl TreeModel {
         Ok(pair_vec.join("\n"))
     }
 
+    /// Add a alias file to the entity at `path`.
     pub fn add_alias(&mut self, name: Option<String>, path: PathBuf) -> Result<()> {
         if !path.exists() {
             return Err(

@@ -1,9 +1,9 @@
-use std::{io, thread, time::Duration, io::Write};
+use std::{io, io::Write};
 use tui::{
     backend::{Backend, CrosstermBackend},
     widgets::{Widget, Block, Borders, Paragraph},
-    layout::{Layout, Constraint, Direction},
-    style::{Color, Modifier, Style},
+    // layout::{Layout, Constraint, Direction},
+    style::{Color, Style},
     text::{Span, Spans, Text},
     Terminal,
     Frame,
@@ -14,7 +14,7 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use std::path::PathBuf;
-use super::terminal::{VCommand, parse_string};
+use super::terminal::{VCommand, parse_string_with_quote};
 use super::tree;
 use super::{get_json_path, get_relative_vtree_path};
 
@@ -32,17 +32,45 @@ impl RichText {
         Self { text, style }
     }
 
-    fn as_spans(&self) -> Spans<'static> {
-        Spans::from(Span::styled(self.text.clone(), self.style))
+    fn as_span(&self) -> Span<'static> {
+        Span::styled(self.text.clone(), self.style)
+    }
+}
+
+#[derive(Debug, Clone)]
+struct RichLine {
+    texts: Vec<RichText>,
+}
+
+impl RichLine {
+    fn new() -> Self {
+        Self { texts: vec![] }
     }
 
-    fn as_styled(&self) -> Text<'static> {
-        Text::styled(self.text.clone(), self.style)
+    fn push(&mut self, text: RichText) {
+        self.texts.push(text);
+    }
+
+    fn as_spans(&self) -> Spans<'static> {
+        let mut spans = vec![];
+        for text in &self.texts {
+            spans.push(text.as_span());
+        }
+        Spans::from(spans)
+    }
+
+    /// Join two RichLines.
+    fn join(&self, other: Self) -> Self {
+        Self {texts: [&self.texts[..], &other.texts[..]].concat()}
+    }
+
+    fn extend(&mut self, texts: Vec<RichText>) {
+        self.texts.extend(texts);
     }
 }
 
 struct App {
-    pub texts: Vec<RichText>,
+    pub lines: Vec<RichLine>,
     pub buffer: String,
     pub cursor_pos: usize,
     pub selection: Option<(usize, usize)>,
@@ -52,27 +80,42 @@ struct App {
 impl App {
     fn new(tree: tree::TreeModel) -> App {
         App {
-            texts: Vec::new(),
+            lines: Vec::new(),
             buffer: String::new(),
             cursor_pos: 0,
             selection: None,
             tree: tree,
         }
     }
+    
     fn flush_buffer(&mut self) {
+        let idx = self.lines.len() - 1;
         for p in self.rich_buffer() {
-            self.texts.push(p);
+            self.lines[idx].push(p);
         }
+        self.clear_buffer();
+    }
+
+    fn clear_buffer(&mut self) {
         self.buffer.clear();
         self.cursor_pos = 0;
     }
     
-    fn print_prefix(&mut self, s: String) {
-        self.texts.push(RichText::new(s, Color::White));
+    fn print_prefix(&mut self, s: String, newline: bool) {
+        if newline {
+            let mut line = RichLine::new();
+            line.push(RichText::new(s, Color::White));
+            self.lines.push(line);
+        }
+        else {
+            let idx = self.lines.len() - 1;
+            self.lines[idx].push(RichText::new(s, Color::White));
+        }
     }
 
+    /// Get the vector of RichTexts from the buffer.
     fn rich_buffer(&self) -> Vec<RichText> {
-        let strs = parse_string(&self.buffer);
+        let strs = parse_string_with_quote(&self.buffer);
         let nstr = strs.len();
         if nstr == 0 {
             return Vec::new();
@@ -98,22 +141,30 @@ impl App {
 
     fn get_text(&self) -> Text {
         let mut text = Text::from("");
-        for rtext in self.texts.iter() {
-            text.extend(rtext.as_styled());
+        let nlines = self.lines.len();
+        let mut iter = self.lines.iter();
+
+        if nlines == 0 {
+            return text;
         }
+        else if nlines > 1 {
+            for _ in 0..nlines - 1 {
+                let line = iter.next().unwrap();
+                text.extend([line.as_spans()]);
+            }
+        }
+        let mut last_line = iter.next().unwrap().clone();
         let rbuf = self.rich_buffer();
-        let mut styled_texts = Vec::new();
-        for rtext in rbuf {
-            styled_texts.push(rtext.as_spans());
-        }
-        text.extend(styled_texts);
+        last_line.extend(rbuf);
+        text.extend([last_line.as_spans()]);
         text
     }
 }
 
 fn process_keys<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> std::io::Result<String> {
+    let _ = std::io::stdout().flush();  // flush stdout
     let prefix = app.tree.as_prefix();
-    app.print_prefix(prefix);
+    app.print_prefix(prefix, true);
     let output = loop {
         terminal.draw(|f| ui(f, &app))?;
         if let Event::Key(KeyEvent {code, modifiers, ..}) = event::read()? {
@@ -125,7 +176,7 @@ fn process_keys<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> std::i
                     break output;
                 },
                 (KeyCode::Backspace, _) => {app.buffer.pop();},
-                (KeyCode::Esc, _) => {app.flush_buffer();},
+                (KeyCode::Esc, _) => {app.clear_buffer();},
                 (KeyCode::Left, KeyModifiers::NONE) => {
                     if app.cursor_pos > 0 {
                         app.cursor_pos -= 1;
@@ -137,7 +188,7 @@ fn process_keys<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> std::i
                     }
                 },
                 (KeyCode::Char(c), KeyModifiers::NONE) => app.buffer.push(c),
-                (KeyCode::Char(c), KeyModifiers::SHIFT) => app.buffer.push(c.to_ascii_uppercase()),
+                (KeyCode::Char(c), KeyModifiers::SHIFT) => app.buffer.push(c),
                 (KeyCode::Char(c), KeyModifiers::CONTROL) => {
                     match c {
                         'c' => {println!("Ctrl+C")},
@@ -191,7 +242,7 @@ pub fn enter(name: String) -> std::io::Result<()> {
         let input = match VCommand::from_string(&user_input){
             Ok(input) => input,
             Err(e) => {
-                app.print_prefix(format!("{}", e));
+                app.print_prefix(format!("{}", e), true);
                 continue;
             }
         };
@@ -221,10 +272,10 @@ pub fn enter(name: String) -> std::io::Result<()> {
                                 format!("{}", e)
                             }
                         };
-                        app.print_prefix(str);
+                        app.print_prefix(str, true);
                     }
                     None => {
-                        app.print_prefix(format!("{}", app.tree.current));
+                        app.print_prefix(format!("{}", app.tree.current), true);
                     }
                 }
                 Ok(())
@@ -238,7 +289,7 @@ pub fn enter(name: String) -> std::io::Result<()> {
                 };
                 match str {
                     Ok(s) => {
-                        app.print_prefix(format!("{}", s));
+                        app.print_prefix(format!("{}", s), true);
                         Ok(())
                     }
                     Err(e) => {
@@ -247,7 +298,7 @@ pub fn enter(name: String) -> std::io::Result<()> {
                 }
             }
             VCommand::Pwd => {
-                app.print_prefix(format!("./{}/{}", app.tree.root.name, app.tree.pwd()));
+                app.print_prefix(format!("./{}/{}", app.tree.root.name, app.tree.pwd()), true);
                 Ok(())
             }
             VCommand::Cat { name } => {
@@ -309,7 +360,7 @@ pub fn enter(name: String) -> std::io::Result<()> {
                         }
                     }
                     Err(err) => {
-                        app.print_prefix(format!("{}", err));
+                        app.print_prefix(format!("{}", err), true);
                         continue;
                     }
                 };
@@ -323,7 +374,7 @@ pub fn enter(name: String) -> std::io::Result<()> {
         match output {
             Ok(_) => {}
             Err(e) => {
-                app.print_prefix(format!("{}", e));
+                app.print_prefix(format!("{}", e), true);
             }
         }
     }
