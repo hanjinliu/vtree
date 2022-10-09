@@ -1,5 +1,5 @@
 use tui::{
-    style::Color,
+    style::{Color, Style},
     text::Text,
 };
 use super::{
@@ -51,6 +51,8 @@ impl Cursor {
     }
 
 }
+
+
 pub struct App {
     pub lines: History<RichLine>,
     pub buffer: String,
@@ -74,9 +76,8 @@ impl App {
     
     pub fn flush_buffer(&mut self) {
         let idx = self.lines.len() - 1;
-        for p in self.rich_buffer() {
-            self.lines[idx].push(p);
-        }
+        let buf = self.rich_buffer();
+        self.lines[idx].extend(buf);
         self.clear_buffer();
     }
 
@@ -116,11 +117,11 @@ impl App {
     }
 
     /// Get the vector of RichTexts from the buffer.
-    pub fn rich_buffer(&self) -> Vec<RichText> {
+    pub fn rich_buffer(&self) -> RichLine {
         let strs = parse_string_with_quote(&self.buffer);
         let nstr = strs.len();
         if nstr == 0 {
-            return Vec::new();
+            return RichLine::new();
         }
         else {
             let cmd = RichText::new(
@@ -137,7 +138,14 @@ impl App {
                     args.push(RichText::new(" ".to_string() + str, Color::White));
                 }
             }
-            return args;
+
+            let mut line = RichLine::from(args);
+            // style selected text
+            if self.cursor.selection_size() > 0 {
+                let (start, end) = self.cursor.selection();
+                line = line.restyled(start, end, Style::default().fg(Color::Black).bg(Color::Gray));
+            }
+            return line;
         }
     }
 
