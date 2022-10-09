@@ -21,9 +21,6 @@ enum VTree {
         #[structopt(long)]
         dry: bool,
     },  // vtree remove {name}: remove a virtual root tree.
-    Test {
-        name: Option<String>,
-    }
 }
 
 // Subdirectory names used in vtree
@@ -363,9 +360,6 @@ fn main() {
         }
         VTree::Remove { name, dry } => {
             remove(name, dry).unwrap();
-        }
-        VTree::Test { name } => {
-            // run().unwrap();
         }
     };
 }
