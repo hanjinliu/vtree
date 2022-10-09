@@ -42,7 +42,7 @@ pub fn enter(name: String) -> std::io::Result<()> {
         let input = match VCommand::from_string(&user_input){
             Ok(input) => input,
             Err(e) => {
-                app.print_prefix(format!("{}", e), true);
+                app.print_text(format!("{}", e));
                 continue;
             }
         };
@@ -64,18 +64,17 @@ pub fn enter(name: String) -> std::io::Result<()> {
             VCommand::Tree { name } => {
                 match name {
                     Some(name) => {
-                        let str = match app.tree.current.get_offspring(&name) {
+                        match app.tree.current.get_offspring(&name) {
                             Ok(item) => {
-                                format!("{}", item)
+                                app.print_text(format!("{}", item))
                             }
                             Err(e) => {
-                                format!("{}", e)
+                                app.print_error(e);
                             }
                         };
-                        app.print_prefix(str, true);
                     }
                     None => {
-                        app.print_prefix(format!("{}", app.tree.current), true);
+                        app.print_text(format!("{}", app.tree.current));
                     }
                 }
                 Ok(())
@@ -89,7 +88,7 @@ pub fn enter(name: String) -> std::io::Result<()> {
                 };
                 match str {
                     Ok(s) => {
-                        app.print_prefix(format!("{}", s), true);
+                        app.print_text(s);
                         Ok(())
                     }
                     Err(e) => {
@@ -98,7 +97,7 @@ pub fn enter(name: String) -> std::io::Result<()> {
                 }
             }
             VCommand::Pwd => {
-                app.print_prefix(format!("./{}/{}", app.tree.root.name, app.tree.pwd()), true);
+                app.print_text(format!("./{}/{}", app.tree.root.name, app.tree.pwd()));
                 Ok(())
             }
             VCommand::Cat { name } => {
@@ -123,7 +122,7 @@ pub fn enter(name: String) -> std::io::Result<()> {
                         match app.tree.current.get_child_mut(&name){
                             Ok(item) => item,
                             Err(e) => {
-                                println!("{}", e);
+                                println!("{}", e);  // TODO: use print_error
                                 continue;
                             },
                         }
@@ -160,7 +159,7 @@ pub fn enter(name: String) -> std::io::Result<()> {
                         }
                     }
                     Err(err) => {
-                        app.print_prefix(format!("{}", err), true);
+                        app.print_error(err);
                         continue;
                     }
                 };
@@ -173,8 +172,8 @@ pub fn enter(name: String) -> std::io::Result<()> {
         };
         match output {
             Ok(_) => {}
-            Err(e) => {
-                app.print_prefix(format!("{}", e), true);
+            Err(err) => {
+                app.print_error(err);
             }
         }
     }

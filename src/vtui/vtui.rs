@@ -11,28 +11,35 @@ use tui::{
 use crossterm::{
     event::{self, Event, KeyEvent, KeyCode, KeyModifiers},
 };
-use super::super::terminal::parse_string_with_quote;
-use super::rich::{RichText, RichLine};
-use super::super::tree;
+use super::{
+    rich::{RichText, RichLine},
+    history::History,
+    super::{
+        terminal::parse_string_with_quote,
+        tree,
+    },
+};
 
 const _VIRTUAL_FILES: &str = "virtual-files";
 
 pub struct App {
-    pub lines: Vec<RichLine>,
+    pub lines: History<RichLine>,
     pub buffer: String,
     pub cursor_pos: usize,
     pub selection: Option<(usize, usize)>,
     pub tree: tree::TreeModel,
+    pub history: History<String>,
 }
 
 impl App {
     pub fn new(tree: tree::TreeModel) -> App {
         App {
-            lines: Vec::new(),
+            lines: History::new(1000),
             buffer: String::new(),
             cursor_pos: 0,
             selection: None,
-            tree: tree,
+            tree,
+            history: History::new(500),
         }
     }
     
@@ -48,17 +55,33 @@ impl App {
         self.buffer.clear();
         self.cursor_pos = 0;
     }
+
+    pub fn run_buffer(&mut self) {
+        let buf = self.buffer.clone();
+        self.history.add(buf);
+        self.flush_buffer();
+    }
+
+    pub fn set_buffer(&mut self, buf: String) {
+        self.buffer = buf;
+        self.cursor_pos = self.buffer.len();
+    }
     
-    pub fn print_prefix(&mut self, s: String, newline: bool) {
-        if newline {
+    pub fn print_text(&mut self, s: String) {
+        s.split("\n").for_each(|s| {
             let mut line = RichLine::new();
-            line.push(RichText::new(s, Color::White));
-            self.lines.push(line);
-        }
-        else {
-            let idx = self.lines.len() - 1;
-            self.lines[idx].push(RichText::new(s, Color::White));
-        }
+            line.push(RichText::new(s.to_string(), Color::White));
+            self.lines.add(line);
+        });
+    }
+
+    pub fn print_error<E: std::error::Error>(&mut self, e: E) {
+        let text = format!("{}", e);
+        text.split("\n").for_each(|s| {
+            let mut line = RichLine::new();
+            line.push(RichText::new(s.to_string(), Color::Red));
+            self.lines.add(line);
+        });
     }
 
     /// Get the vector of RichTexts from the buffer.
@@ -112,7 +135,7 @@ impl App {
 pub fn process_keys<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> std::io::Result<String> {
     let _ = std::io::stdout().flush();  // flush stdout
     let prefix = app.tree.as_prefix();
-    app.print_prefix(prefix, true);
+    app.print_text(prefix);
     let output = loop {
         terminal.draw(|f| ui(f, &app))?;
         if let Event::Key(KeyEvent {code, modifiers, ..}) = event::read()? {
@@ -120,7 +143,7 @@ pub fn process_keys<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> st
                 (KeyCode::Enter, KeyModifiers::NONE) => {
                     let output = app.buffer.clone();
                     app.buffer.push('\n');
-                    app.flush_buffer();
+                    app.run_buffer();
                     break output;
                 },
                 (KeyCode::Backspace, _) => {app.buffer.pop();},
@@ -141,6 +164,17 @@ pub fn process_keys<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> st
                     match c {
                         'c' => {println!("Ctrl+C")},
                         _ => {},
+                    }
+                },
+                (KeyCode::Up, KeyModifiers::NONE) => {
+                    if let Some(buf) = app.history.prev() {
+                        app.set_buffer(buf);
+                    }
+                },
+                (KeyCode::Down, KeyModifiers::NONE) => {
+                    match app.history.next() {
+                        Some(buf) => app.set_buffer(buf),
+                        None => app.clear_buffer(),
                     }
                 },
                 _ => {},
