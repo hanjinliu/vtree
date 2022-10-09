@@ -12,7 +12,10 @@ use std::path::PathBuf;
 use super::super::terminal::VCommand;
 use super::super::tree;
 use super::super::{get_json_path, get_relative_vtree_path};
-use super::vtui::{process_keys, App};
+use super::{
+    vtui::process_keys, 
+    app::App,
+};
 
 const _VIRTUAL_FILES: &str = "virtual-files";
 

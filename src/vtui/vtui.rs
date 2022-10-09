@@ -4,142 +4,15 @@ use tui::{
     widgets::{Block, Borders, Paragraph},
     // layout::{Layout, Constraint, Direction},
     style::{Color, Style},
-    text::Text,
     Terminal,
     Frame,
 };
 use crossterm::{
     event::{self, Event, KeyEvent, KeyCode, KeyModifiers},
 };
-use super::{
-    rich::{RichText, RichLine},
-    history::History,
-    super::{
-        terminal::parse_string_with_quote,
-        tree,
-    },
-};
+use super::app::App;
 
 const _VIRTUAL_FILES: &str = "virtual-files";
-
-pub struct App {
-    pub lines: History<RichLine>,
-    pub buffer: String,
-    pub cursor_pos: usize,
-    pub selection: Option<(usize, usize)>,
-    pub tree: tree::TreeModel,
-    pub history: History<String>,
-    pub scroll_pos: usize,
-}
-
-impl App {
-    pub fn new(tree: tree::TreeModel) -> Self {
-        Self {
-            lines: History::new(1000),
-            buffer: String::new(),
-            cursor_pos: 0,
-            selection: None,
-            tree,
-            history: History::new(500),
-            scroll_pos: 0,
-        }
-    }
-    
-    pub fn flush_buffer(&mut self) {
-        let idx = self.lines.len() - 1;
-        for p in self.rich_buffer() {
-            self.lines[idx].push(p);
-        }
-        self.clear_buffer();
-    }
-
-    pub fn clear_buffer(&mut self) {
-        self.buffer.clear();
-        self.cursor_pos = 0;
-    }
-
-    pub fn run_buffer(&mut self) {
-        let buf = self.buffer.clone();
-        self.history.add(buf);
-        self.flush_buffer();
-    }
-
-    pub fn set_buffer(&mut self, buf: String) {
-        self.buffer = buf;
-        self.cursor_pos = self.buffer.len();
-    }
-    
-    pub fn print_text(&mut self, s: String) {
-        s.split("\n").for_each(|s| {
-            let mut line = RichLine::new();
-            line.push(RichText::new(s.to_string(), Color::White));
-            self.lines.add(line);
-        });
-        self.scroll_pos = 0;
-    }
-
-    pub fn print_error<E: std::error::Error>(&mut self, e: E) {
-        let text = format!("{}", e);
-        text.split("\n").for_each(|s| {
-            let mut line = RichLine::new();
-            line.push(RichText::new(s.to_string(), Color::Red));
-            self.lines.add(line);
-        });
-        self.scroll_pos = 0
-    }
-
-    /// Get the vector of RichTexts from the buffer.
-    pub fn rich_buffer(&self) -> Vec<RichText> {
-        let strs = parse_string_with_quote(&self.buffer);
-        let nstr = strs.len();
-        if nstr == 0 {
-            return Vec::new();
-        }
-        else {
-            let cmd = RichText::new(
-                strs.get(0).unwrap().to_string(), 
-                Color::Yellow
-            );
-            let mut args = Vec::new();
-            args.push(cmd);
-            for str in strs[1..].iter() {
-                if str.starts_with("\"") || str.starts_with("\'") {
-                    args.push(RichText::new(" ".to_string() + str, Color::Blue));
-                }
-                else {
-                    args.push(RichText::new(" ".to_string() + str, Color::White));
-                }
-            }
-            return args;
-        }
-    }
-
-    pub fn get_text(&self, nlines: usize) -> Text {
-        let mut text = Text::from("");
-        let nlines_total = self.lines.len();
-        if nlines_total <= self.scroll_pos || nlines == 0 {
-            return text;
-        }
-        let stop = nlines_total - self.scroll_pos;
-        let (start, nlines) = if stop >= nlines {
-            (stop - nlines, nlines)
-        } else {
-            (0, stop)
-        };
-        let mut iter = self.lines.iter().skip(start);
-        if nlines > 1 {
-            for _ in 0..nlines - 1 {
-                let line = iter.next().unwrap();
-                text.extend([line.as_spans()]);
-            }
-        }
-        let mut last_line = iter.next().unwrap().clone();
-        let rbuf = self.rich_buffer();
-        last_line.extend(rbuf);
-        text.extend([last_line.as_spans()]);
-        text
-    }
-}
 
 pub fn process_keys<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> std::io::Result<String> {
     let _ = std::io::stdout().flush();  // flush stdout
@@ -155,18 +28,16 @@ pub fn process_keys<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> st
                     app.run_buffer();
                     break output;
                 },
-                (KeyCode::Backspace, _) => {app.buffer.pop();},
-                (KeyCode::Esc, _) => {app.clear_buffer();},
-                (KeyCode::Left, KeyModifiers::NONE) => {
-                    if app.cursor_pos > 0 {
-                        app.cursor_pos -= 1;
-                    }
-                },
-                (KeyCode::Right, KeyModifiers::NONE) => {
-                    if app.cursor_pos <= app.buffer.len() {
-                        app.cursor_pos += 1;
-                    }
-                },
+                (KeyCode::Backspace, KeyModifiers::NONE) => { app.text_backspace_event(); },
+                (KeyCode::Delete, KeyModifiers::NONE) => { app.text_delete_event(); },
+                (KeyCode::Tab, KeyModifiers::NONE) => {}, // TODO: tab completion
+                (KeyCode::Esc, KeyModifiers::NONE) => {app.clear_buffer();},
+                (KeyCode::Left, KeyModifiers::NONE) => { app.text_move_cursor(-1, false) },
+                (KeyCode::Right, KeyModifiers::NONE) => { app.text_move_cursor(1, false) },
+                (KeyCode::Left, KeyModifiers::CONTROL) => { app.text_move_cursor(-1, false) },  // TODO
+                (KeyCode::Right, KeyModifiers::CONTROL) => { app.text_move_cursor(1, false) },  // TODO
+                (KeyCode::Left, KeyModifiers::SHIFT) => { app.text_move_cursor(-1, true) },  // TODO
+                (KeyCode::Right, KeyModifiers::SHIFT) => { app.text_move_cursor(1, true) },  // TODO
                 (KeyCode::Char(c), KeyModifiers::NONE) => app.buffer.push(c),
                 (KeyCode::Char(c), KeyModifiers::SHIFT) => app.buffer.push(c),
                 (KeyCode::Char(c), KeyModifiers::CONTROL) => {
