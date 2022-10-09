@@ -13,39 +13,48 @@ use super::{
 
 const _VIRTUAL_FILES: &str = "virtual-files";
 
-pub struct Selection {
-    pub start: usize,
-    pub end: usize,
+pub struct Cursor {
+    start: usize,
+    pos: usize,
 }
 
-impl Selection {
+impl Cursor {
     pub fn new() -> Self {
-        Self {start: 0, end: 0}
+        Self {start: 0, pos: 0}
     }
 
     /// Canonicalize the selection, so that start <= end
-    pub fn range(&self) -> (usize, usize) {
-        if self.start <= self.end {
-            (self.start, self.end)
+    pub fn selection(&self) -> (usize, usize) {
+        if self.start <= self.pos {
+            (self.start, self.pos)
         } else {
-            (self.end, self.start)
+            (self.pos, self.start)
         }
     }
     
     /// Get the size of the selection
-    pub fn size(&self) -> usize {
-        if self.start <= self.end {
-            self.end - self.start
+    pub fn selection_size(&self) -> usize {
+        if self.start <= self.pos {
+            self.pos - self.start
         } else {
-            self.start - self.end
+            self.start - self.pos
         }
     }
+
+    pub fn move_to(&mut self, pos: usize) {
+        self.start = pos;
+        self.pos = self.start;
+    }
+
+    pub fn select_to(&mut self, pos: usize) {
+        self.pos = pos;
+    }
+
 }
 pub struct App {
     pub lines: History<RichLine>,
     pub buffer: String,
-    pub cursor_pos: usize,
-    pub selection: Selection,
+    pub cursor: Cursor,
     pub tree: tree::TreeModel,
     pub history: History<String>,
     pub scroll_pos: usize,
@@ -56,8 +65,7 @@ impl App {
         Self {
             lines: History::new(1000),
             buffer: String::new(),
-            cursor_pos: 0,
-            selection: Selection::new(),
+            cursor: Cursor::new(),
             tree,
             history: History::new(500),
             scroll_pos: 0,
@@ -74,7 +82,7 @@ impl App {
 
     pub fn clear_buffer(&mut self) {
         self.buffer.clear();
-        self.cursor_pos = 0;
+        self.cursor.move_to(0);
     }
 
     pub fn run_buffer(&mut self) {
@@ -85,7 +93,7 @@ impl App {
 
     pub fn set_buffer(&mut self, buf: String) {
         self.buffer = buf;
-        self.cursor_pos = self.buffer.len();
+        self.cursor.move_to(self.buffer.len());
     }
     
     pub fn print_text(&mut self, s: String) {
@@ -135,55 +143,64 @@ impl App {
 
     /// Equivalent to pushing BackSpace in terminal
     pub fn text_backspace_event(&mut self) {
-        if self.selection.size() > 0 {
-            let (start, end) = self.selection.range();
-            self.buffer.replace_range(start..end, "");
-            self.cursor_pos = start;
-            self.selection = Selection::new();
+        if self.cursor.selection_size() > 0 {
+            self.clear_selected_text();
             return;
         }
-        if self.cursor_pos == 0 {
+        if self.cursor.pos == 0 {
             return;
         }
-        self.cursor_pos -= 1;
-        self.buffer.remove(self.cursor_pos);
+        self.cursor.move_to(self.cursor.pos - 1);
+        self.buffer.remove(self.cursor.pos);
     }
 
     /// Equivalent to pushing Delete in terminal
     pub fn text_delete_event(&mut self) {
-        if self.selection.size() > 0 {
-            let (start, end) = self.selection.range();
-            self.buffer.replace_range(start..end, "");
-            self.cursor_pos = start;
-            self.selection = Selection::new();
+        if self.cursor.selection_size() > 0 {
+            self.clear_selected_text();
             return;
         }
-        if self.cursor_pos == self.buffer.len() {
+        if self.cursor.pos == self.buffer.len() {
             return;
         }
-        self.buffer.remove(self.cursor_pos);
+        self.buffer.remove(self.cursor.pos);
     }
 
     pub fn text_move_cursor(&mut self, dx: i16, keep_selection: bool) {
         if 0 <= dx {
             let n = dx as usize;
-            if self.cursor_pos + n <= self.buffer.len() {
-                self.cursor_pos += n;
+            if self.cursor.pos + n <= self.buffer.len() {
+                if keep_selection {
+                    self.cursor.select_to(self.cursor.pos + n);
+                } else {
+                    self.cursor.move_to(self.cursor.pos + n);
+                }
             }
         } 
         else {
             let n = -dx as usize;
-            if self.cursor_pos >= n {
-                self.cursor_pos -= n;
+            if self.cursor.pos >= n {
+                if keep_selection {
+                    self.cursor.select_to(self.cursor.pos - n);
+                } else {
+                    self.cursor.move_to(self.cursor.pos - n);
+                }
             }
         }
-        if keep_selection {
-            self.selection.end = self.cursor_pos;
+    }
+
+    pub fn text_add_char(&mut self, c: char) {
+        if self.cursor.selection_size() > 0 {
+            self.clear_selected_text();
         }
-        else {
-            self.selection.start = self.cursor_pos;
-            self.selection.end = self.cursor_pos;
-        }
+        self.buffer.insert(self.cursor.pos, c);
+        self.cursor.move_to(self.cursor.pos + 1);
+    }
+
+    fn clear_selected_text(&mut self) {
+        let (start, end) = self.cursor.selection();
+        self.buffer.replace_range(start..end, "");
+        self.cursor.move_to(start);
     }
 
     pub fn get_text(&self, nlines: usize) -> Text {
