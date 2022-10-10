@@ -30,6 +30,11 @@ impl<T> History<T> {
     pub fn iter(&self) -> std::collections::vec_deque::Iter<T> {
         self.history.iter()
     }
+
+    pub fn clear(&mut self) {
+        self.history.clear();
+        self.index = 0;
+    }
 }
 
 impl<T: Clone> History<T> {
@@ -45,8 +50,11 @@ impl<T: Clone> History<T> {
         if self.index == self.history.len() {
             return None;
         }
-        self.index += 1;
-        Some(self.history[self.index - 1].clone())
+        let out = Some(self.history[self.index].clone());
+        if self.index < self.history.len() - 1 {
+            self.index += 1;
+        }
+        out
     }
 
 }

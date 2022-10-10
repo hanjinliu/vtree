@@ -54,8 +54,59 @@ impl Cursor {
         self.start = self.pos;
     }
 
+    pub fn set_selection(&mut self, start: usize, end: usize) {
+        self.start = start;
+        self.pos = end;
+    }
+
 }
 
+pub struct TabCompleter {
+    candidates: History<String>,
+    seed: String,
+}
+
+impl TabCompleter {
+    pub fn new() -> Self {
+        Self {
+            candidates: History::new(100),
+            seed: String::new(),
+        }
+    }
+
+    pub fn set_seed(&mut self, seed: &String) {
+        if &self.seed != seed {
+            self.candidates.index = 0;
+            self.seed = seed.clone();
+        }
+    }
+
+    pub fn candidates_from(&mut self, list: Vec<String>) {
+        self.candidates.clear();
+        for item in list {
+            if item.starts_with(&self.seed) {
+                self.candidates.add(item);
+            }
+        }
+        self.candidates.index = 0;
+    }
+
+    pub fn next(&mut self) -> Option<String> {
+        self.candidates.next()
+    }
+
+    pub fn prev(&mut self) -> Option<String> {
+        self.candidates.prev()
+    }
+
+    pub fn candidates(&self) -> Vec<String> {
+        let mut vec = Vec::new();
+        for h in self.candidates.history.iter() {
+            vec.push(h.clone());
+        }
+        vec
+    }
+}
 
 pub struct App {
     pub lines: History<RichLine>,
@@ -63,6 +114,7 @@ pub struct App {
     pub cursor: Cursor,
     pub tree: tree::TreeModel,
     pub history: History<String>,
+    pub tab_completion: TabCompleter,
     pub scroll_pos: usize,
 }
 
@@ -74,10 +126,12 @@ impl App {
             cursor: Cursor::new(),
             tree,
             history: History::new(500),
+            tab_completion: TabCompleter::new(),
             scroll_pos: 0,
         }
     }
     
+    /// Clear current buffer string and add it to history
     pub fn flush_buffer(&mut self) {
         let idx = self.lines.len() - 1;
         let buf = self.rich_buffer();

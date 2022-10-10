@@ -47,7 +47,15 @@ pub fn process_keys<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> st
                 },
                 (KeyCode::Backspace, KeyModifiers::NONE) => { app.text_backspace_event(); },
                 (KeyCode::Delete, KeyModifiers::NONE) => { app.text_delete_event(); },
-                (KeyCode::Tab, KeyModifiers::NONE) => {}, // TODO: tab completion
+                (KeyCode::Tab, KeyModifiers::NONE) => {
+                    let last_word = app.buffer.split_whitespace().last().unwrap_or("");
+                    app.tab_completion.set_seed(&last_word.to_string());
+                    app.tab_completion.candidates_from(app.tree.current.children_names());
+                    if let Some(c) = app.tab_completion.next() {
+                        let to_complete = &c[last_word.len()..];
+                        app.buffer += to_complete;
+                    }
+                },
                 (KeyCode::Esc, KeyModifiers::NONE) => {app.clear_buffer();},
                 (KeyCode::Left, KeyModifiers::NONE) => {
                     app.text_move_cursor(-1, false) 
@@ -100,6 +108,11 @@ pub fn process_keys<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> st
                         'v' => {
                             app.insert_text(clipboard::get_text());
                         },
+                        'w' => {
+                            // remove the previous word
+                            app.text_move_cursor_to_prev_word(true);
+                            app.text_backspace_event();
+                        }
                         'x' => {
                             if app.cursor.selection_size() > 0 {
                                 let text = app.text_selected();
