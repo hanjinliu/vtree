@@ -6,7 +6,7 @@ use super::{
     rich::{RichText, RichLine},
     history::History,
     super::{
-        terminal::parse_string_raw,
+        terminal::{parse_string, parse_string_raw},
         tree,
     },
 };
@@ -63,7 +63,7 @@ impl Cursor {
 
 pub struct TabCompleter {
     candidates: History<String>,
-    seed: String,
+    pub seed: String,
 }
 
 impl TabCompleter {
@@ -142,6 +142,7 @@ impl App {
     pub fn clear_buffer(&mut self) {
         self.buffer.clear();
         self.cursor.move_to(0);
+        self.tab_completion.seed.clear();
     }
 
     pub fn run_buffer(&mut self) {
@@ -153,6 +154,7 @@ impl App {
     pub fn set_buffer(&mut self, buf: String) {
         self.buffer = buf;
         self.cursor.move_to(self.buffer.len());
+        self.tab_completion.seed.clear();
     }
 
     pub fn print_text(&mut self, s: String) {
@@ -238,6 +240,7 @@ impl App {
         }
         self.cursor.move_to(self.cursor.pos - 1);
         self.buffer.remove(self.cursor.pos);
+        self.tab_completion.seed.clear();
     }
 
     /// Equivalent to pushing Delete in terminal
@@ -250,6 +253,7 @@ impl App {
             return;
         }
         self.buffer.remove(self.cursor.pos);
+        self.tab_completion.seed.clear();
     }
 
     pub fn text_move_cursor(&mut self, dx: i16, keep_selection: bool) {
@@ -341,6 +345,7 @@ impl App {
         }
         self.buffer.insert(self.cursor.pos, c);
         self.cursor.move_to(self.cursor.pos + 1);
+        self.tab_completion.seed.clear();
     }
 
     // Get the selected text.
@@ -385,5 +390,21 @@ impl App {
         last_line.extend(rbuf);
         text.extend([last_line.as_spans()]);
         text
+    }
+
+    /// Run tab completion and update the buffer.
+    pub fn run_completion(&mut self) {
+        let words = parse_string(&self.buffer);
+        let nwords = words.len();
+        let last_word = words[nwords - 1].clone();
+        let seed = &self.tab_completion.seed;
+        if seed == "" {
+            // if no seed found, initialize the state.
+            self.tab_completion.set_seed(&last_word.to_string());
+            self.tab_completion.candidates_from(self.tree.current.children_names());
+        }
+        if let Some(c) = self.tab_completion.next() {
+            self.buffer = [&words[..nwords - 1], &[c]].concat().join("");
+        }
     }
 }

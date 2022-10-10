@@ -9,6 +9,7 @@ use tui::{
 use crossterm::{
     event::{self, Event, KeyEvent, KeyCode, KeyModifiers},
 };
+
 use super::app::App;
 
 mod clipboard {
@@ -48,13 +49,7 @@ pub fn process_keys<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> st
                 (KeyCode::Backspace, KeyModifiers::NONE) => { app.text_backspace_event(); },
                 (KeyCode::Delete, KeyModifiers::NONE) => { app.text_delete_event(); },
                 (KeyCode::Tab, KeyModifiers::NONE) => {
-                    let last_word = app.buffer.split_whitespace().last().unwrap_or("");
-                    app.tab_completion.set_seed(&last_word.to_string());
-                    app.tab_completion.candidates_from(app.tree.current.children_names());
-                    if let Some(c) = app.tab_completion.next() {
-                        let to_complete = &c[last_word.len()..];
-                        app.buffer += to_complete;
-                    }
+                    app.run_completion();
                 },
                 (KeyCode::Esc, KeyModifiers::NONE) => {app.clear_buffer();},
                 (KeyCode::Left, KeyModifiers::NONE) => {
