@@ -2,7 +2,6 @@ use std::io::Write;
 use tui::{
     backend::Backend,
     widgets::{Block, Borders, Paragraph},
-    // layout::{Layout, Constraint, Direction},
     style::{Color, Style},
     Terminal,
     Frame,
@@ -12,7 +11,25 @@ use crossterm::{
 };
 use super::app::App;
 
+mod clipboard {
+    use arboard::Clipboard;
+
+    pub fn get_text() -> String {
+        match Clipboard::new() {
+            Ok(mut clip) => clip.get_text().unwrap_or("".to_string()),
+            Err(_) => "".to_string()
+        }
+    }
+    
+    pub fn set_text(text: &String) {
+        match Clipboard::new() {
+            Ok(mut clip) => clip.set_text(text).unwrap_or(()),
+            Err(_) => {}
+        }
+    }
+}
 const _VIRTUAL_FILES: &str = "virtual-files";
+
 
 pub fn process_keys<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> std::io::Result<String> {
     let _ = std::io::stdout().flush();  // flush stdout
@@ -39,17 +56,27 @@ pub fn process_keys<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> st
                     app.text_move_cursor(1, false) 
                 },
                 (KeyCode::Left, KeyModifiers::CONTROL) => { 
-                    app.text_move_cursor(-1, false) 
-                },  // TODO
+                    app.text_move_cursor_to_prev_word(false);
+                },
                 (KeyCode::Right, KeyModifiers::CONTROL) => {
-                    app.text_move_cursor(1, false) 
-                },  // TODO
+                    app.text_move_cursor_to_next_word(false)
+                },
                 (KeyCode::Left, KeyModifiers::SHIFT) => {
                     app.text_move_cursor(-1, true)
-                },  // TODO
+                },
                 (KeyCode::Right, KeyModifiers::SHIFT) => {
                     app.text_move_cursor(1, true)
-                },  // TODO
+                },
+                (KeyCode::Left, _) => {
+                    if modifiers.contains(KeyModifiers::CONTROL) && modifiers.contains(KeyModifiers::SHIFT) {
+                        app.text_move_cursor_to_prev_word(true);
+                    };
+                },
+                (KeyCode::Right, _) => {
+                    if modifiers.contains(KeyModifiers::CONTROL) && modifiers.contains(KeyModifiers::SHIFT) {
+                        app.text_move_cursor_to_next_word(true);
+                    };
+                },
                 (KeyCode::Home, KeyModifiers::NONE) => { app.cursor.move_to(0) },
                 (KeyCode::End, KeyModifiers::NONE) => { app.cursor.move_to(app.buffer.len()) },
                 (KeyCode::Home, KeyModifiers::SHIFT) => { app.cursor.select_to(0) },
@@ -58,9 +85,32 @@ pub fn process_keys<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> st
                 (KeyCode::Char(c), KeyModifiers::SHIFT) => app.text_add_char(c),
                 (KeyCode::Char(c), KeyModifiers::CONTROL) => {
                     match c {
-                        'c' => {},  // TODO: copy
-                        'v' => {},  // TODO: paste
-                        'x' => {},  // TODO: cut
+                        'a' => {
+                            app.cursor.move_to(0);
+                            app.cursor.select_to(app.buffer.len());
+                        },
+                        'c' => {
+                            let text = if app.cursor.selection_size() > 0 {
+                                app.text_selected()
+                            } else {
+                                app.buffer.clone()
+                            };
+                            clipboard::set_text(&text);
+                        },
+                        'v' => {
+                            app.insert_text(clipboard::get_text());
+                        },
+                        'x' => {
+                            if app.cursor.selection_size() > 0 {
+                                let text = app.text_selected();
+                                clipboard::set_text(&text);
+                                app.text_backspace_event();
+                            } else {
+                                let text = app.buffer.clone();
+                                clipboard::set_text(&text);
+                                app.clear_buffer();
+                            }
+                        },
                         _ => {},
                     }
                 },

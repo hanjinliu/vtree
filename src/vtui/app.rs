@@ -100,7 +100,7 @@ impl App {
         self.buffer = buf;
         self.cursor.move_to(self.buffer.len());
     }
-    
+
     pub fn print_text(&mut self, s: String) {
         s.split("\n").for_each(|s| {
             let mut line = RichLine::new();
@@ -224,12 +224,81 @@ impl App {
         }
     }
 
+    pub fn text_move_cursor_to_next_word(&mut self, keep_selection: bool) {
+        let mut pos = self.cursor.pos;
+        let mut whitespace_found = false;
+        
+        self.buffer[self.cursor.pos..]
+            .chars()
+            .enumerate()
+            .find(|(i, c)| {
+                if !c.is_whitespace() {
+                    pos = self.cursor.pos + i;
+                    whitespace_found
+                } else {
+                    whitespace_found = true;
+                    false
+                }
+            })  
+            .or_else(|| {
+                pos = self.buffer.len();
+                None
+            });
+
+        if keep_selection {
+            self.cursor.select_to(pos);
+        } else {
+            self.cursor.move_to(pos);
+        }
+    }
+
+    pub fn text_move_cursor_to_prev_word(&mut self, keep_selection: bool) {
+        let mut pos = self.cursor.pos;
+        let mut char_found = false;
+        
+        self.buffer[..self.cursor.pos]
+            .chars()
+            .rev()
+            .enumerate()
+            .find(|(i, c)| {
+                if c.is_whitespace() {
+                    pos = self.cursor.pos - i;
+                    char_found
+                } else {
+                    char_found = true;
+                    false
+                }
+            })  
+            .or_else(|| {
+                pos = 0;
+                None
+            });
+
+        if keep_selection {
+            self.cursor.select_to(pos);
+        } else {
+            self.cursor.move_to(pos);
+        }
+    }
+
     pub fn text_add_char(&mut self, c: char) {
         if self.cursor.selection_size() > 0 {
             self.clear_selected_text();
         }
         self.buffer.insert(self.cursor.pos, c);
         self.cursor.move_to(self.cursor.pos + 1);
+    }
+
+    // Get the selected text.
+    pub fn text_selected(&mut self) -> String {
+        let (start, end) = self.cursor.selection();
+        self.buffer[start..end].to_string()
+    }
+
+    /// Insert text at the cursor position
+    pub fn insert_text(&mut self, text: String) {
+        self.buffer.insert_str(self.cursor.pos, &text);
+        self.cursor.move_to(self.cursor.pos + text.len());
     }
 
     fn clear_selected_text(&mut self) {
