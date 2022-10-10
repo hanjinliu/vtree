@@ -6,7 +6,7 @@ use super::{
     rich::{RichText, RichLine},
     history::History,
     super::{
-        terminal::parse_string_with_quote,
+        terminal::parse_string_raw,
         tree,
     },
 };
@@ -118,7 +118,7 @@ impl App {
 
     /// Get the vector of RichTexts from the buffer.
     pub fn rich_buffer(&self) -> RichLine {
-        let strs = parse_string_with_quote(&self.buffer);
+        let strs = parse_string_raw(&self.buffer);
         let nstr = strs.len();
         if nstr == 0 {
             let text = RichText::new(" ".to_string(), Color::Black)

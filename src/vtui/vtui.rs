@@ -38,11 +38,15 @@ pub fn process_keys<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> st
                 (KeyCode::Right, KeyModifiers::CONTROL) => { app.text_move_cursor(1, false) },  // TODO
                 (KeyCode::Left, KeyModifiers::SHIFT) => { app.text_move_cursor(-1, true) },  // TODO
                 (KeyCode::Right, KeyModifiers::SHIFT) => { app.text_move_cursor(1, true) },  // TODO
+                (KeyCode::Home, KeyModifiers::NONE) => { app.cursor.move_to(0) },
+                (KeyCode::End, KeyModifiers::NONE) => { app.cursor.move_to(app.buffer.len()) },
                 (KeyCode::Char(c), KeyModifiers::NONE) => app.text_add_char(c),
                 (KeyCode::Char(c), KeyModifiers::SHIFT) => app.text_add_char(c),
                 (KeyCode::Char(c), KeyModifiers::CONTROL) => {
                     match c {
-                        'c' => {println!("Ctrl+C")},
+                        'c' => {},  // TODO: copy
+                        'v' => {},  // TODO: paste
+                        'x' => {},  // TODO: cut
                         _ => {},
                     }
                 },

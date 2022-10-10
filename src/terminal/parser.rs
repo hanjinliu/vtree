@@ -64,7 +64,7 @@ pub fn parse_string(str: &String) -> Vec<String> {
 /// parse_string("cd dirname"); // returns ["cd", "dirname"]
 /// parse_string("cd \"dir name\""); // returns ["cd", "dir name"]
 /// ```
-pub fn parse_string_with_quote(str: &String) -> Vec<String> {
+pub fn parse_string_raw(str: &String) -> Vec<String> {
     let mut inputs: Vec<String> = Vec::new();
     let mut buf: Vec<char> = Vec::new();
     let stack: RefCell<Option<char>> = RefCell::new(None);
@@ -97,16 +97,17 @@ pub fn parse_string_with_quote(str: &String) -> Vec<String> {
                         inputs.push(buf.iter().collect::<String>());
                         buf.clear();
                     }
+                    inputs.push(" ".to_string());
                 }
                 Some(_) => {
-                    // if quotation mark is stacked, then push the character to the buffer.
                     buf.push(' ');
                 }
             }
         }
     }
+    // flush the buffer
     if buf.len() > 0 {
-        inputs.push(buf.into_iter().collect::<String>().trim().to_string());
+        inputs.push(buf.into_iter().collect::<String>().to_string());
     }
     inputs
 }
@@ -151,31 +152,64 @@ mod test_parse_string_quoted {
 
     #[test]
     fn test_parse() {
-        let val = parse_string_with_quote(&"cd /usr/bin".to_string());
-        assert_eq!(val, vec!["cd".to_string(), "/usr/bin".to_string()]);
+        let val = parse_string_raw(&"cd /usr/bin".to_string());
+        assert_eq!(val, vec!["cd".to_string(), " ".to_string(), "/usr/bin".to_string()]);
     }
 
     #[test]
     fn test_parse_quoted() {
-        let val = parse_string_with_quote(&"cd \"dir name\"".to_string());
-        assert_eq!(val, vec!["cd".to_string(), "\"dir name\"".to_string()]);
+        let val = parse_string_raw(&"cd \"dir name\"".to_string());
+        assert_eq!(val, vec!["cd".to_string(), " ".to_string(), "\"dir name\"".to_string()]);
     }
 
     #[test]
     fn test_parse_quoted_and_not_quoted() {
-        let val = parse_string_with_quote(&"cd \"dir name\" dir name".to_string());
+        let val = parse_string_raw(&"cd \"dir name\" dir name".to_string());
         assert_eq!(
             val,
-            vec!["cd".to_string(), "\"dir name\"".to_string(), "dir".to_string(), "name".to_string()]
+            vec![
+                "cd".to_string(), " ".to_string(), "\"dir name\"".to_string(), " ".to_string(),
+                 "dir".to_string(), " ".to_string(), "name".to_string()]
         );
     }
     
     #[test]
     fn test_parse_quote_not_closed() {
-        let val = parse_string_with_quote(&"cd \"dir name".to_string());
+        let val = parse_string_raw(&"cd \"dir name".to_string());
         assert_eq!(
             val,
-            vec!["cd".to_string(), "\"dir name".to_string()]
+            vec!["cd".to_string(), " ".to_string(), "\"dir name".to_string()]
         );
     }
+
+    #[test]
+    fn test_parse_starts_with_space() {
+        let val = parse_string_raw(&" a b c".to_string());
+        assert_eq!(
+            val,
+            vec![" ".to_string(), "a".to_string(), " ".to_string(), "b".to_string(), 
+                 " ".to_string(), "c".to_string()]
+        );
+    }
+
+    #[test]
+    fn test_parse_ends_with_space() {
+        let val = parse_string_raw(&"a b c ".to_string());
+        assert_eq!(
+            val,
+            vec!["a".to_string(), " ".to_string(), "b".to_string(), " ".to_string(), 
+                 "c".to_string(), " ".to_string()]
+        );
+    }
+
+    #[test]
+    fn test_parse_many_spaces() {
+        let val = parse_string_raw(&"a  bb  c  ".to_string());
+        assert_eq!(
+            val,
+            vec!["a".to_string(), " ".to_string(), " ".to_string(), "bb".to_string(), " ".to_string(), 
+                 " ".to_string(), "c".to_string(), " ".to_string(), " ".to_string()]
+        );
+    }
+    
 }
