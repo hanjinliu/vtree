@@ -1,13 +1,10 @@
-pub mod error;
 pub mod tree;
 pub mod terminal;
-use std::fs::File;
-use std::io::Write;
-use std::path::PathBuf;
+pub mod vtui;
+use std::{fs::File, io::Write, path::PathBuf};
 use structopt::StructOpt;
-use terminal::VCommand;
 use tree::TreeItem;
-// use crate::error::VTreeError;
+use vtui::enter;
 
 
 // The main command line interface for vtree.
@@ -32,7 +29,7 @@ const _TREES: &str = "trees";
 const _VIRTUAL_FILES: &str = "virtual-files";
 
 /// Return the directory that .vtree directory should exists.
-fn get_vtree_path(check: bool) -> std::io::Result<PathBuf> {
+pub fn get_vtree_path(check: bool) -> std::io::Result<PathBuf> {
     let path = std::env::current_dir()?.join(_VTREE);
     if check && !path.exists() {
         return Err(
@@ -45,7 +42,7 @@ fn get_vtree_path(check: bool) -> std::io::Result<PathBuf> {
     Ok(path)
 }
 
-fn get_relative_vtree_path(check: bool) -> std::io::Result<PathBuf> {
+pub fn get_relative_vtree_path(check: bool) -> std::io::Result<PathBuf> {
     let path = std::env::current_dir()?.join(_VTREE);
     if check && !path.exists() {
         return Err(
@@ -61,7 +58,7 @@ fn get_relative_vtree_path(check: bool) -> std::io::Result<PathBuf> {
 /// Check .vtree directory and search for virtual tree model stored in it.
 /// # Errors
 /// If the .vtree directory does not exist, return an error.
-fn get_json_path(name: &String) -> std::io::Result<PathBuf> {
+pub fn get_json_path(name: &String) -> std::io::Result<PathBuf> {
     let path = get_vtree_path(true)?;
     Ok(path.join(_TREES).join(format!("{}.json", name)))
 }
@@ -117,166 +114,6 @@ fn tree(name: String) -> std::io::Result<()> {
     }
     Ok(())
 }
-
-/// Enter a virtual tree and launch vtree session.
-/// Commands such as "cd" and "ls" are replaced with virtual ones. Until "exit"
-/// is called, you'll be in the virtual file system.
-fn enter(name: String) -> std::io::Result<()> {
-    let root = get_json_path(&name)?;
-    if !root.exists() {
-        return Err(
-            std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                format!("Virtual directory {} does not exist.", name),
-            )
-        )?;
-    }
-    let mut tree = tree::TreeModel::from_file(&root)?;
-
-    loop {
-        let prefix = tree.as_prefix();
-        // get valid input
-        let input = match VCommand::from_line(&prefix){
-            Ok(input) => input,
-            Err(e) => {
-                println!("{}", e);
-                continue;
-            }
-        };
-        let output = match input {
-            VCommand::Empty => {
-                Ok(())
-            }
-            VCommand::Cd { name } => {
-                match name {
-                    Some(path) => {
-                        tree.move_by_string(&path)
-                    }
-                    None => {
-                        tree.move_to_home()
-                    }
-                }
-            
-            }
-            VCommand::Tree { name } => {
-                match name {
-                    Some(name) => {
-                        match tree.current.get_offspring(&name){
-                            Ok(item) => {
-                                println!("{}", item)
-                            }
-                            Err(e) => {
-                                println!("{}", e)
-                            }
-                        }
-                    }
-                    None => {
-                        println!("{}", tree.current);
-                    }
-                }
-                Ok(())
-            }
-            VCommand::Ls { name, desc } => {
-                let str = if desc {
-                    tree.ls_with_desc(name)
-                }
-                else {
-                    tree.ls_simple(name)
-                };
-                match str {
-                    Ok(s) => {
-                        println!("{}", s);
-                        Ok(())
-                    }
-                    Err(e) => {
-                        Err(e)
-                    }
-                }
-            }
-            VCommand::Pwd => {
-                println!("./{}/{}", tree.root.name, tree.pwd());
-                Ok(())
-            }
-            VCommand::Cat { name } => {
-                tree.print_file(&name)
-            }
-            VCommand::Touch { name } => {
-                let vpath_cand = get_relative_vtree_path(true)?
-                    .join(_VIRTUAL_FILES)
-                    .join(name.clone());
-                // find unique file name
-                tree.create_new_file(&name, vpath_cand)
-            }
-            VCommand::Open { name } => {
-                tree.open_file(&name)
-            }
-            VCommand::Cp { src, dst } => {
-                tree.add_alias(dst, PathBuf::from(src))
-            }
-            VCommand::Desc { name, desc } => {
-                let mut item = match name {
-                    Some(name) => {
-                        match tree.current.get_child_mut(&name){
-                            Ok(item) => item,
-                            Err(e) => {
-                                println!("{}", e);
-                                continue;
-                            },
-                        }
-                    }
-                    None => {
-                        &mut tree.current
-                    }
-                };
-                match desc {
-                    Some(desc) => {
-                        // let mut item = item.clone();
-                        item.desc = Some(desc);
-                    }
-                    None => {
-                        println!("{}", item.desc.as_ref().unwrap_or(&"".to_string()));
-                    }
-                }
-                Ok(())
-            }
-            VCommand::Call { vec } => {
-                tree.call_command(&vec)
-            }
-            VCommand::Mkdir { name } => {
-                tree.mkdir(&name)
-            }
-            VCommand::Rm { name } => {
-                match tree.current.get_child(&name) {
-                    Ok(item) => {
-                        match &item.entity {
-                            Some(path) => {
-                                std::fs::remove_file(path)?;
-                            }
-                            None => {}
-                        }
-                    }
-                    Err(err) => {
-                        println!("{}", err);
-                        continue;
-                    }
-                };
-                tree.rm(&name)
-            }
-            VCommand::Exit => {
-                tree.to_file(root.as_path())?;
-                break;
-            }
-        };
-        match output {
-            Ok(_) => {}
-            Err(e) => {
-                println!("{}", e);
-            }
-        }
-    }
-    Ok(())
-}
-
 
 fn list(contains: Option<String>) -> std::io::Result<()> {
     let mut path = get_vtree_path(true)?;

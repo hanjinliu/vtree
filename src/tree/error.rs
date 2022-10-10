@@ -18,3 +18,7 @@ impl fmt::Display for TreeError {
         write!(f, "{}", self.msg)
     }
 }
+
+impl std::error::Error for TreeError {
+    
+}

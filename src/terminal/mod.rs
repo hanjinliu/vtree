@@ -1,4 +1,4 @@
 pub mod input;
 pub mod parser;
 pub use self::input::VCommand;
-pub use self::parser::parse_string;
+pub use self::parser::{parse_string, parse_string_raw};
