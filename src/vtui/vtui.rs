@@ -154,7 +154,6 @@ pub fn process_keys<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> st
 
 fn render_ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
     let rect = f.size();
-    // let chunks = Layout::default().direction(Direction::Vertical).margin(1).split(rect);
 
     // NOTE: height of text area is 2 less than the height of the terminal (two borders).
     let h = rect.height as usize - 2;
@@ -171,9 +170,4 @@ fn render_ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         .title("VTree"));
     
     f.render_widget(input, rect);
-    
-    // f.set_cursor(
-    //     chunks[0].x + app.prefix.width() as u16 + 1,
-    //     chunks[0].y + 1,
-    // )
 }

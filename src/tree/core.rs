@@ -170,17 +170,21 @@ impl TreeModel {
         format!("/[{}]/{} > ", name, path)
     }
     
-    pub fn print_file(&self, arg: &String) -> Result<()>{
+    pub fn read_file(&self, arg: &String) -> Result<String>{
         let item = self.current.get_offspring(&arg)?;
         if item.is_file() {
             let rpath = item.entity.as_ref().unwrap().to_str().unwrap();
             let path = resolve_path(rpath).unwrap();
             let contents = std::fs::read_to_string(&path);
-            match contents {
-                Ok(value) => { println!("{}", value); }
-                Err(err) => { println!("{}", err); }
-            }
-            Ok(())
+            let out = match contents {
+                Ok(value) => value,
+                Err(err) => return Err(
+                    TreeError::new(
+                        format!("{}", err),
+                    )
+                )
+            };
+            Ok(out)
         }
         else {
             return Err(
@@ -195,7 +199,7 @@ impl TreeModel {
         use open::that;
         let item = self.current.get_offspring(&name)?;
         let path = resolve_path(item.entity.as_ref().unwrap().to_str().unwrap()).unwrap();
-        println!("Opening: {}", path.to_str().unwrap());
+
         match that(path) {
             Ok(_) => Ok(()),
             Err(err) => Err(TreeError::new(format!("Error opening file: {}", err)))
@@ -329,10 +333,31 @@ impl TreeModel {
         self.set_item_at(self.path.path.clone(), item)
     }
 
+    /// Call external command from the virtual terminal.
+    /// let vec = vec!["ls".to_string(), "-l".to_string()];
+    /// self.call_command(&vec)
     pub fn call_command(&self, inputs: &Vec<String>) -> Result<()> {
         let mut output: Vec<String> = Vec::new();
         for arg in inputs {
-            let abspath = resolve_path(arg);
+            let arg = match self.current.get_offspring(arg) {
+                Ok(item) => {
+                    match item.entity.as_ref() {
+                        Some(entity) => {
+                            let entity_path = entity.to_str().unwrap();
+                            match resolve_path(entity_path) {
+                                Ok(path) => path.to_str().unwrap().to_string(),
+                                Err(_) => arg.clone()
+                            }
+                        }
+                        None => arg.clone(),
+                    }
+                }
+                Err(_) => {
+                    arg.clone()
+                }
+            };
+
+            let abspath = resolve_path(&arg);
             match abspath {
                 Ok(abspath) => {
                     output.push(abspath.to_str().unwrap().to_string());
@@ -342,14 +367,18 @@ impl TreeModel {
                 }
             }
         }
-        println!("Calling: {}", output.join(" "));
+
+        // Run command.
+        // NOTE: `spawn` is not appropriate for such as `vim`.
         let cmd = if cfg!(target_os = "windows") {
             let mut args = vec!("/C".to_string());
             args.extend(output);
-            Command::new("cmd").args(&args).spawn()
+            Command::new("cmd").args(&args).status()
         }
         else {
-            Command::new(&output[0]).args(&output[1..]).spawn()
+            let mut args = vec!("-C".to_string());
+            args.extend(output);
+            Command::new("sh").args(&args).status()
         };
         
         match cmd {
@@ -357,7 +386,6 @@ impl TreeModel {
             Err(err) => Err(TreeError::new(format!("Error calling command: {}", err)))
         }
     }
-
 }
 
 /// Resolve input path string (must exist) and return a PathBuf with an absolute path.

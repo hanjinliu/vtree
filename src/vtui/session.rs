@@ -104,7 +104,11 @@ pub fn enter(name: String) -> std::io::Result<()> {
                 Ok(())
             }
             VCommand::Cat { name } => {
-                app.tree.print_file(&name)
+                match app.tree.read_file(&name) {
+                    Ok(text) => app.print_text(text),
+                    Err(e) => app.print_error(e),
+                };
+                Ok(())
             }
             VCommand::Touch { name } => {
                 let vpath_cand = get_relative_vtree_path(true)?
