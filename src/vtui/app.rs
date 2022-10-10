@@ -6,7 +6,7 @@ use super::{
     rich::{RichText, RichLine},
     history::History,
     super::{
-        terminal::{parse_string, parse_string_raw},
+        terminal::parse_string_raw,
         tree,
     },
 };
@@ -394,7 +394,7 @@ impl App {
 
     /// Run tab completion and update the buffer.
     pub fn run_completion(&mut self) {
-        let words = parse_string(&self.buffer);
+        let words = parse_string_raw(&self.buffer);
         let nwords = words.len();
         let last_word = words[nwords - 1].clone();
         let seed = &self.tab_completion.seed;
@@ -405,6 +405,10 @@ impl App {
         }
         if let Some(c) = self.tab_completion.next() {
             self.buffer = [&words[..nwords - 1], &[c]].concat().join("");
+            self.cursor.move_to(self.buffer.len());
+        }
+        if self.tab_completion.candidates.index == self.tab_completion.candidates.len() {
+            self.tab_completion.candidates.index = 0;
         }
     }
 }
