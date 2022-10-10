@@ -50,6 +50,10 @@ impl Cursor {
         self.pos = pos;
     }
 
+    pub fn clear_selection(&mut self) {
+        self.start = self.pos;
+    }
+
 }
 
 
@@ -121,6 +125,7 @@ impl App {
         let strs = parse_string_raw(&self.buffer);
         let nstr = strs.len();
         if nstr == 0 {
+            // Show a single space (corresponding to the cursor) if the buffer is empty.
             let text = RichText::new(" ".to_string(), Color::Black)
                 .restyled(Style::default().bg(Color::Rgb(108, 108, 108)));
             let mut line = RichLine::new();
@@ -136,10 +141,9 @@ impl App {
             args.push(cmd);
             for str in strs[1..].iter() {
                 if str.starts_with("\"") || str.starts_with("\'") {
-                    args.push(RichText::new(" ".to_string() + str, Color::Blue));
-                }
-                else {
-                    args.push(RichText::new(" ".to_string() + str, Color::White));
+                    args.push(RichText::new(str.to_string(), Color::Blue));
+                } else {
+                    args.push(RichText::new(str.to_string(), Color::White));
                 }
             }
 
@@ -203,9 +207,10 @@ impl App {
                 } else {
                     self.cursor.move_to(self.cursor.pos + n);
                 }
+            } else {
+                self.cursor.clear_selection();
             }
-        } 
-        else {
+        } else {
             let n = -dx as usize;
             if self.cursor.pos >= n {
                 if keep_selection {
@@ -213,6 +218,8 @@ impl App {
                 } else {
                     self.cursor.move_to(self.cursor.pos - n);
                 }
+            } else {
+                self.cursor.clear_selection();
             }
         }
     }

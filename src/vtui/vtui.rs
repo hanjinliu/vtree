@@ -32,14 +32,28 @@ pub fn process_keys<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> st
                 (KeyCode::Delete, KeyModifiers::NONE) => { app.text_delete_event(); },
                 (KeyCode::Tab, KeyModifiers::NONE) => {}, // TODO: tab completion
                 (KeyCode::Esc, KeyModifiers::NONE) => {app.clear_buffer();},
-                (KeyCode::Left, KeyModifiers::NONE) => { app.text_move_cursor(-1, false) },
-                (KeyCode::Right, KeyModifiers::NONE) => { app.text_move_cursor(1, false) },
-                (KeyCode::Left, KeyModifiers::CONTROL) => { app.text_move_cursor(-1, false) },  // TODO
-                (KeyCode::Right, KeyModifiers::CONTROL) => { app.text_move_cursor(1, false) },  // TODO
-                (KeyCode::Left, KeyModifiers::SHIFT) => { app.text_move_cursor(-1, true) },  // TODO
-                (KeyCode::Right, KeyModifiers::SHIFT) => { app.text_move_cursor(1, true) },  // TODO
+                (KeyCode::Left, KeyModifiers::NONE) => {
+                    app.text_move_cursor(-1, false) 
+                },
+                (KeyCode::Right, KeyModifiers::NONE) => { 
+                    app.text_move_cursor(1, false) 
+                },
+                (KeyCode::Left, KeyModifiers::CONTROL) => { 
+                    app.text_move_cursor(-1, false) 
+                },  // TODO
+                (KeyCode::Right, KeyModifiers::CONTROL) => {
+                    app.text_move_cursor(1, false) 
+                },  // TODO
+                (KeyCode::Left, KeyModifiers::SHIFT) => {
+                    app.text_move_cursor(-1, true)
+                },  // TODO
+                (KeyCode::Right, KeyModifiers::SHIFT) => {
+                    app.text_move_cursor(1, true)
+                },  // TODO
                 (KeyCode::Home, KeyModifiers::NONE) => { app.cursor.move_to(0) },
                 (KeyCode::End, KeyModifiers::NONE) => { app.cursor.move_to(app.buffer.len()) },
+                (KeyCode::Home, KeyModifiers::SHIFT) => { app.cursor.select_to(0) },
+                (KeyCode::End, KeyModifiers::SHIFT) => { app.cursor.select_to(app.buffer.len()) },
                 (KeyCode::Char(c), KeyModifiers::NONE) => app.text_add_char(c),
                 (KeyCode::Char(c), KeyModifiers::SHIFT) => app.text_add_char(c),
                 (KeyCode::Char(c), KeyModifiers::CONTROL) => {
