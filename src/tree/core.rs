@@ -195,6 +195,7 @@ impl TreeModel {
         }
     }
 
+    /// Open file using default application.
     pub fn open_file(&self, name: &String) -> Result<()> {
         use open::that;
         let item = self.current.get_offspring(&name)?;
@@ -206,6 +207,18 @@ impl TreeModel {
         }
     }
 
+    /// Get the item at `name` and return its entity path.
+    pub fn entity_abspath(&self, name: &String) -> Result<PathBuf> {
+        let item = self.current.get_offspring(&name)?;
+        let rpath = item.entity_path();
+        match rpath {
+            Some(rpath) => match resolve_path(rpath) {
+                Ok(path) => Ok(path),
+                Err(_) => Err(TreeError::new(format!("Error resolving {}", rpath)))
+            }
+            None => Err(TreeError::new(format!("No entity found"))),
+        }
+    }
     pub fn mkdir(&mut self, name: &String) -> Result<()> {
         let mut item = self.current.clone();
         item.mkdir(&name).unwrap();

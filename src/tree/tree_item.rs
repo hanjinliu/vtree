@@ -183,19 +183,26 @@ impl TreeItem {
     }
 
     /// Return all the entities.
-    pub fn values(&self) -> Vec<&Box<TreeItem>> {
+    pub fn entities(&self) -> Vec<&Box<TreeItem>> {
         let mut values = Vec::new();
         for each in &self.children {
             match &each.entity {
                 Some(_) => values.push(each),
                 None => {
-                    for sub in each.values() {
+                    for sub in each.entities() {
                         values.push(&sub);
                     }
                 }
             }
         }
         values
+    }
+
+    pub fn entity_path(&self) -> Option<&str> {
+        match self.entity.as_ref() {
+            Some(ent) => ent.to_str(),
+            None => None
+        }
     }
 
     fn _fmt_with_indent(&self, f: &mut std::fmt::Formatter, level: usize) -> std::fmt::Result{

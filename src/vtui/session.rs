@@ -150,6 +150,7 @@ pub fn enter(name: String) -> std::io::Result<()> {
                 Ok(())
             }
             VCommand::Call { vec } => {
+                terminal.show_cursor()?;
                 app.tree.call_command(&vec)
             }
             VCommand::Mkdir { name } => {
