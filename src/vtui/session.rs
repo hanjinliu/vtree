@@ -65,9 +65,11 @@ pub fn enter(name: String) -> std::io::Result<()> {
             
             }
             VCommand::Tree { name } => {
+                
+                
                 match name {
                     Some(name) => {
-                        match app.tree.current.get_offspring(&name) {
+                        match app.tree.get_item(&name) {
                             Ok(item) => {
                                 app.print_text(format!("{}", item))
                             }
@@ -77,7 +79,14 @@ pub fn enter(name: String) -> std::io::Result<()> {
                         };
                     }
                     None => {
-                        app.print_text(format!("{}", app.tree.current));
+                        match app.tree.current_item() {
+                            Ok(item) => {
+                                app.print_text(format!("{}", item))
+                            }
+                            Err(e) => {
+                                app.print_error(e);
+                            }
+                        };
                     }
                 }
                 Ok(())
@@ -121,30 +130,20 @@ pub fn enter(name: String) -> std::io::Result<()> {
                 app.tree.open_file(&name)
             }
             VCommand::Cp { src, dst } => {
-                app.tree.add_alias(dst, PathBuf::from(src))
+                app.tree.add_alias(dst.as_ref(), PathBuf::from(src))
             }
             VCommand::Desc { name, desc } => {
-                let mut item = match name {
-                    Some(name) => {
-                        match app.tree.current.get_child_mut(&name){
-                            Ok(item) => item,
-                            Err(e) => {
-                                println!("{}", e);  // TODO: use print_error
-                                continue;
-                            },
-                        }
-                    }
-                    None => {
-                        &mut app.tree.current
-                    }
+                let item_result = match name {
+                    Some(name) => app.tree.get_item_mut(&name),
+                    None => app.tree.get_item_mut(&app.tree.pwd()),
                 };
+                let mut item = item_result.unwrap();
                 match desc {
                     Some(desc) => {
-                        // let mut item = item.clone();
                         item.desc = Some(desc);
                     }
                     None => {
-                        // app.print_prefix(format!("{}", item.desc.as_ref().unwrap_or(&"".to_string())));
+                        // app.print_text(format!("{}", item.desc.as_ref().unwrap_or(&"".to_string())));
                     }
                 }
                 Ok(())
@@ -154,10 +153,10 @@ pub fn enter(name: String) -> std::io::Result<()> {
                 app.tree.call_command(&vec)
             }
             VCommand::Mkdir { name } => {
-                app.tree.mkdir(&name)
+                app.tree.make_directory(&name)
             }
             VCommand::Rm { name } => {
-                match app.tree.current.get_child(&name) {
+                match app.tree.get_item_mut(&name) {
                     Ok(item) => {
                         match &item.entity {
                             Some(path) => {
@@ -171,7 +170,7 @@ pub fn enter(name: String) -> std::io::Result<()> {
                         continue;
                     }
                 };
-                app.tree.rm(&name)
+                app.tree.remove_child(&name)
             }
             VCommand::Exit => {
                 app.tree.to_file(root.as_path())?;

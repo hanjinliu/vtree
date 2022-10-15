@@ -160,7 +160,7 @@ impl TreeItem {
     }
 
     /// Create a new directory named `name`.
-    pub fn mkdir(&mut self, name: &String) -> Result<()>{
+    pub fn make_directory(&mut self, name: &String) -> Result<()>{
         if self.has_dir(&name) {
             return Err(TreeError::new(format!("Directory {} already exists.", name)))
         }
@@ -170,7 +170,7 @@ impl TreeItem {
     }
 
     /// Remove a directory or a file named `name`.
-    pub fn rm(&mut self, name: &String) -> Result<()>{
+    pub fn remove_child(&mut self, name: &String) -> Result<()>{
         let mut index = 0;
         for child in &self.children {
             if child.name == *name {
@@ -198,6 +198,7 @@ impl TreeItem {
         values
     }
 
+    /// Get the absolute path of the entity.
     pub fn entity_path(&self) -> Option<&str> {
         match self.entity.as_ref() {
             Some(ent) => ent.to_str(),

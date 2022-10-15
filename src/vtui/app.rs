@@ -401,7 +401,7 @@ impl App {
         if seed == "" {
             // if no seed found, initialize the state.
             self.tab_completion.set_seed(&last_word.to_string());
-            self.tab_completion.candidates_from(self.tree.current.children_names());
+            self.tab_completion.candidates_from(self.tree.current_item().unwrap().children_names());
         }
         if let Some(c) = self.tab_completion.next() {
             self.buffer = [&words[..nwords - 1], &[c]].concat().join("");
