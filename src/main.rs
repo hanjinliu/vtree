@@ -153,7 +153,7 @@ fn remove(name: String, dry: bool) -> std::io::Result<()> {
     let tree = TreeItem::from_file(&path)?;
     let default = std::path::Path::new("");
 
-    for item in &tree.values() {
+    for item in &tree.entities() {
         if let Some(path) = &item.entity {
             if path.parent().unwrap_or(default).ends_with(_VIRTUAL_FILES) {
                 if dry {

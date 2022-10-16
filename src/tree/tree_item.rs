@@ -42,6 +42,11 @@ impl TreeItem {
         Ok(tree)
     }
 
+    /// Create a new item from a formatted string.
+    pub fn from_string(s: &String) -> Self {
+        serde_json::from_str(s.as_str()).unwrap()
+    }
+
     /// True if the tree item is a file.
     pub fn is_file(&self) -> bool {
         match &self.entity {
@@ -53,6 +58,14 @@ impl TreeItem {
     /// True if the tree item is a directory.
     pub fn is_dir(&self) -> bool {
         !self.is_file()
+    }
+
+    pub fn iter_children(&self) -> impl Iterator<Item = &TreeItem> {
+        self.children.iter().map(|item| item.as_ref())
+    }
+
+    pub fn iter_children_mut(&mut self) -> impl Iterator<Item = &mut TreeItem> {
+        self.children.iter_mut().map(|item| item.as_mut())
     }
 
     /// Iterate the children names of this item.
@@ -76,18 +89,8 @@ impl TreeItem {
         false
     }
 
-    /// Check if this tree item has a child file with given name.
-    pub fn has_file(&self, name: &String) -> bool {
-        for each in &self.children {
-            if each.name == *name && each.is_file() {
-                return true
-            }
-        }
-        false
-    }
-
     /// Check if this tree item has a child directory with given name.
-    pub fn has_dir(&self, name: &String) -> bool {
+    fn has_dir(&self, name: &String) -> bool {
         for each in &self.children {
             if each.name == *name && each.is_dir() {
                 return true
@@ -103,7 +106,16 @@ impl TreeItem {
                 return Ok(each)
             }
         }
-        return Err(TreeError::new(format!("No such file or directory: {}", name)))
+        Err(TreeError::new(format!("No such file or directory: {}", name)))
+    }
+
+    pub fn get_child_mut(&mut self, name: &String) -> Result<&mut TreeItem> {
+        for each in self.iter_children_mut() {
+            if each.name == *name {
+                return Ok(each)
+            }
+        }
+        Err(TreeError::new(format!("No such file or directory: {}", name)))
     }
 
     /// Get a child directory by its name.
@@ -116,34 +128,9 @@ impl TreeItem {
         return Err(TreeError::new(format!("No such directory: {}", name)))
     }
 
-    /// Get a offspring item by its relative path from self.
-    /// Unlike `get_child`, input such as "a/b/c" is allowed.
-    pub fn get_offspring(&self, name: &String) -> Result<&TreeItem> {
-        let mut child = self;
-        for eachname in name.replace("\\", "/").split('/').into_iter() {
-            let mut found = false;
-            for each in &child.children {
-                if each.name == *eachname {
-                    child = each.as_ref();
-                    found = true;
-                    break;
-                }
-            }
-            if !found {
-                return Err(TreeError::new(format!("No such file or directory: {}", name)))
-            }
-        }
-        Ok(child)
-    }
-
-    /// The mutable version of `get_child`.
-    pub fn get_child_mut(&mut self, name: &String) -> Result<&mut TreeItem> {
-        for child in &mut self.children {
-            if child.name == *name {
-                return Ok(child)
-            }
-        }
-        return Err(TreeError::new(format!("No such file or directory: {}", name)))
+    /// Convert self as a mutable object.
+    pub fn as_mut(&mut self) -> &mut TreeItem {
+        self
     }
 
     /// Add a new file named `name` with entity at `path`.
@@ -160,7 +147,7 @@ impl TreeItem {
     }
 
     /// Create a new directory named `name`.
-    pub fn mkdir(&mut self, name: &String) -> Result<()>{
+    pub fn make_directory(&mut self, name: &String) -> Result<()>{
         if self.has_dir(&name) {
             return Err(TreeError::new(format!("Directory {} already exists.", name)))
         }
@@ -170,7 +157,7 @@ impl TreeItem {
     }
 
     /// Remove a directory or a file named `name`.
-    pub fn rm(&mut self, name: &String) -> Result<()>{
+    pub fn remove_child(&mut self, name: &String) -> Result<()>{
         let mut index = 0;
         for child in &self.children {
             if child.name == *name {
@@ -183,19 +170,27 @@ impl TreeItem {
     }
 
     /// Return all the entities.
-    pub fn values(&self) -> Vec<&Box<TreeItem>> {
+    pub fn entities(&self) -> Vec<&Box<TreeItem>> {
         let mut values = Vec::new();
         for each in &self.children {
             match &each.entity {
                 Some(_) => values.push(each),
                 None => {
-                    for sub in each.values() {
+                    for sub in each.entities() {
                         values.push(&sub);
                     }
                 }
             }
         }
         values
+    }
+
+    /// Get the absolute path of the entity.
+    pub fn entity_path(&self) -> Option<&str> {
+        match self.entity.as_ref() {
+            Some(ent) => ent.to_str(),
+            None => None
+        }
     }
 
     fn _fmt_with_indent(&self, f: &mut std::fmt::Formatter, level: usize) -> std::fmt::Result{
@@ -247,18 +242,5 @@ impl std::fmt::Display for TreeItem {
         let child = iter.next().unwrap();
         child._fmt_with_indent_last(f, 1)?;
         Ok(())
-    }
-}
-
-// Implement iterator for the tree item.
-impl Iterator for TreeItem {
-    type Item = Box<TreeItem>;
-
-    /// Iterate over the children of the tree item.
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.children.len() == 0 {
-            return None;
-        }
-        self.children.pop()
     }
 }
