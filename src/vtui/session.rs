@@ -134,10 +134,11 @@ pub fn enter(name: String) -> std::io::Result<()> {
             }
             VCommand::Desc { name, desc } => {
                 let item_result = match name {
-                    Some(name) => app.tree.get_item_mut(&name),
-                    None => app.tree.get_item_mut(&app.tree.pwd()),
+                    Some(name) => app.tree.get_item(&name),
+                    None => app.tree.get_item(&app.tree.pwd()),
                 };
-                let mut item = item_result.unwrap();
+                let mut item = item_result.unwrap().clone();
+                let item = item.as_mut();
                 match desc {
                     Some(desc) => {
                         item.desc = Some(desc);
@@ -156,7 +157,7 @@ pub fn enter(name: String) -> std::io::Result<()> {
                 app.tree.make_directory(&name)
             }
             VCommand::Rm { name } => {
-                match app.tree.get_item_mut(&name) {
+                match app.tree.get_item(&name) {
                     Ok(item) => {
                         match &item.entity {
                             Some(path) => {

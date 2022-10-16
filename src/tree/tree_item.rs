@@ -146,6 +146,10 @@ impl TreeItem {
         return Err(TreeError::new(format!("No such file or directory: {}", name)))
     }
 
+    pub fn as_mut(&mut self) -> &mut TreeItem {
+        self
+    }
+
     /// Add a new file named `name` with entity at `path`.
     pub fn add_item(&mut self, name: &String, path: PathBuf) -> Result<()> {
         for child in &self.children {

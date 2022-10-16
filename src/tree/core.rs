@@ -97,6 +97,14 @@ impl TreeModel {
         Ok(current)
     }
 
+    // pub fn current_item_mut(&mut self) -> Result<&mut TreeItem> {
+    //     let ref mut current = self.root.clone();
+    //     for frg in &self.path.path {
+    //         *current = current.get_child(frg)?.clone();
+    //     }
+    //     Ok(current)
+    // }
+
     pub fn resolve_virtual_path(&self, path: &String) -> Result<Vec<String>> {
         let mut curpath: Vec<String> = Vec::new();
         for s in &self.path.path {
@@ -139,11 +147,6 @@ impl TreeModel {
         self.item_at(pathvec)
     }
 
-    pub fn get_item_mut(&mut self, path: &String) -> Result<&mut TreeItem> {
-        let pathvec = self.resolve_virtual_path(path)?;
-        self.item_at_mut(pathvec)
-    }
-
     fn item_at(&self, pathvec: Vec<String>) -> Result<&TreeItem> {
         let mut cpath = self.path.clone();
         for p in pathvec {
@@ -156,22 +159,6 @@ impl TreeModel {
         let mut item = &self.root;
         for path in &cpath.path {
             item = self.root.get_child(path)?;
-        }
-        Ok(item)
-    }
-
-    fn item_at_mut(&self, pathvec: Vec<String>) -> Result<&mut TreeItem> {
-        let mut cpath = self.path.clone();
-        for p in pathvec {
-            if p == ".." {
-                cpath = cpath.pops(1);
-            } else {
-                cpath = cpath.join_str(p.to_string());
-            }
-        }
-        let mut item = &mut self.root.clone();
-        for path in &cpath.path {
-            item = item.get_child_mut(path)?;
         }
         Ok(item)
     }
@@ -278,10 +265,12 @@ impl TreeModel {
             Some(name) => name,
             None => return Err(TreeError::new("Path could not be resolved".to_string()))
         };
-        let item = match self.item_at_mut(pathvec) {
+        let item = match self.item_at(pathvec) {
             Ok(item) => item,
             Err(_) => self.current_item()?,
         };
+        let mut new_item = item.clone();
+        let item = new_item.as_mut();
         item.make_directory(&file_name)?;
         Ok(())
     }
@@ -292,7 +281,9 @@ impl TreeModel {
             Some(name) => name,
             None => return Err(TreeError::new("Cannot remove root".to_string()))
         };
-        let mut item = self.item_at_mut(pathvec)?;
+        
+        let mut new_item = self.item_at(pathvec)?.clone();
+        let item = new_item.as_mut();
         item.remove_child(&file_name)
     }
 
@@ -362,7 +353,8 @@ impl TreeModel {
             }
         };
 
-        let mut item = self.item_at_mut(dirvec)?;
+        let mut new_item = self.item_at(dirvec)?.clone();
+        let item = new_item.as_mut();
         item.add_item(&filename, filepath)
     }
 
@@ -405,7 +397,8 @@ impl TreeModel {
                 return Err(TreeError::new(format!("{}: {}", vpath.to_str().unwrap(), err)))
             }
         };
-        let mut item = self.item_at_mut(pathvec)?;
+        let mut new_item = self.item_at(pathvec)?.clone();
+        let item = new_item.as_mut();
         item.add_item(&filename, vpath)
     }
 
