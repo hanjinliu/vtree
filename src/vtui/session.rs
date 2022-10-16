@@ -9,9 +9,10 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use std::path::PathBuf;
+
 use super::super::terminal::VCommand;
 use super::super::tree;
-use super::super::{get_json_path, get_relative_vtree_path};
+use super::super::{get_json_path, get_vtree_path, get_relative_vtree_path};
 use super::{
     vtui::process_keys, 
     app::App,
@@ -154,7 +155,7 @@ pub fn enter(name: String) -> std::io::Result<()> {
                     Ok(item) => {
                         match &item.entity {
                             Some(path) => {
-                                let vfiles_path = get_relative_vtree_path(true)?
+                                let vfiles_path = get_vtree_path(true)?
                                     .join(_VIRTUAL_FILES);
                                 if path.starts_with(vfiles_path) {
                                     std::fs::remove_file(path)?;
