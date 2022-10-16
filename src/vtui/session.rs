@@ -154,7 +154,11 @@ pub fn enter(name: String) -> std::io::Result<()> {
                     Ok(item) => {
                         match &item.entity {
                             Some(path) => {
-                                std::fs::remove_file(path)?;
+                                let vfiles_path = get_relative_vtree_path(true)?
+                                    .join(_VIRTUAL_FILES);
+                                if path.starts_with(vfiles_path) {
+                                    std::fs::remove_file(path)?;
+                                }
                             }
                             None => {}
                         }
@@ -166,8 +170,10 @@ pub fn enter(name: String) -> std::io::Result<()> {
                 };
                 app.tree.remove_child(&name)
             }
-            VCommand::Exit => {
-                app.tree.to_file(root.as_path())?;
+            VCommand::Exit { discard } => {
+                if !discard {
+                    app.tree.to_file(root.as_path())?;
+                }
                 break;
             }
         };
