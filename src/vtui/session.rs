@@ -55,18 +55,12 @@ pub fn enter(name: String) -> std::io::Result<()> {
             }
             VCommand::Cd { name } => {
                 match name {
-                    Some(path) => {
-                        app.tree.move_by_string(&path)
-                    }
-                    None => {
-                        app.tree.move_to_home()
-                    }
+                    Some(path) => app.tree.move_by_string(&path),
+                    None => Ok(app.tree.move_to_home()),
                 }
             
             }
             VCommand::Tree { name } => {
-                
-                
                 match name {
                     Some(name) => {
                         match app.tree.get_item(&name) {
@@ -94,8 +88,7 @@ pub fn enter(name: String) -> std::io::Result<()> {
             VCommand::Ls { name, desc } => {
                 let str = if desc {
                     app.tree.ls_with_desc(name)
-                }
-                else {
+                } else {
                     app.tree.ls_simple(name)
                 };
                 match str {
@@ -144,7 +137,7 @@ pub fn enter(name: String) -> std::io::Result<()> {
                         item.desc = Some(desc);
                     }
                     None => {
-                        // app.print_text(format!("{}", item.desc.as_ref().unwrap_or(&"".to_string())));
+                        app.print_text(format!("{}", item.desc.as_ref().unwrap_or(&"".to_string())));
                     }
                 }
                 Ok(())

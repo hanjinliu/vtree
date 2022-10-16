@@ -77,17 +77,17 @@ impl TreeItem {
     }
 
     /// Check if this tree item has a child file with given name.
-    pub fn has_file(&self, name: &String) -> bool {
-        for each in &self.children {
-            if each.name == *name && each.is_file() {
-                return true
-            }
-        }
-        false
-    }
+    // fn has_file(&self, name: &String) -> bool {
+    //     for each in &self.children {
+    //         if each.name == *name && each.is_file() {
+    //             return true
+    //         }
+    //     }
+    //     false
+    // }
 
     /// Check if this tree item has a child directory with given name.
-    pub fn has_dir(&self, name: &String) -> bool {
+    fn has_dir(&self, name: &String) -> bool {
         for each in &self.children {
             if each.name == *name && each.is_dir() {
                 return true
@@ -136,16 +136,7 @@ impl TreeItem {
         Ok(child)
     }
 
-    /// The mutable version of `get_child`.
-    pub fn get_child_mut(&mut self, name: &String) -> Result<&mut TreeItem> {
-        for child in &mut self.children {
-            if child.name == *name {
-                return Ok(child)
-            }
-        }
-        return Err(TreeError::new(format!("No such file or directory: {}", name)))
-    }
-
+    /// Convert self as a mutable object.
     pub fn as_mut(&mut self) -> &mut TreeItem {
         self
     }

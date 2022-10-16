@@ -132,16 +132,7 @@ impl TreeModel {
         true
     }
 
-    pub fn set_current(&mut self, path: PathVector) -> Result<()> {
-        let mut current = &self.root;
-        for name in &path.path {
-            current = current.get_child_dir(name)?;
-        }
-        self.path = path;
-
-        Ok(())
-    }
-
+    /// Get tree item at `path`.
     pub fn get_item(&self, path: &String) -> Result<&TreeItem> {
         let pathvec = self.resolve_virtual_path(path)?;
         self.item_at(pathvec)
@@ -183,8 +174,8 @@ impl TreeModel {
         Ok(())
     }
 
-    pub fn move_to_home(&mut self) -> Result<()> {
-        self.set_current(PathVector::new())
+    pub fn move_to_home(&mut self) {
+        self.path = PathVector::new();
     }
 
     pub fn move_by_string(&mut self, path: &String) -> Result<()> {
@@ -478,5 +469,6 @@ fn string_to_vec(path: &String) -> Vec<String> {
         .replace("\\", "/")
         .split("/")
         .map(|s| s.to_string())
+        .filter(|s| s != "" && s != ".")
         .collect::<Vec<String>>()
 }
