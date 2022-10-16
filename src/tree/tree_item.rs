@@ -55,6 +55,10 @@ impl TreeItem {
         !self.is_file()
     }
 
+    pub fn iter_children(&self) -> impl Iterator<Item = &TreeItem> {
+        self.children.iter().map(|item| item.as_ref())
+    }
+
     /// Iterate the children names of this item.
     pub fn iter_children_names(&self) -> impl Iterator<Item = &String> {
         self.children.iter().map(|x| &x.name)
@@ -250,18 +254,5 @@ impl std::fmt::Display for TreeItem {
         let child = iter.next().unwrap();
         child._fmt_with_indent_last(f, 1)?;
         Ok(())
-    }
-}
-
-// Implement iterator for the tree item.
-impl Iterator for TreeItem {
-    type Item = Box<TreeItem>;
-
-    /// Iterate over the children of the tree item.
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.children.len() == 0 {
-            return None;
-        }
-        self.children.pop()
     }
 }

@@ -1,12 +1,7 @@
 use super::{tree_item::TreeItem, error::TreeError};
 use std::{path::PathBuf, process::Command};
 use std::io::Write;
-use super::error::{Result};
-
-// #[derive(Clone, Debug)]
-// pub struct VirtualPath {
-//     inner: PathBuf,
-// }
+use super::error::Result;
 
 
 #[derive(Clone)]
@@ -224,16 +219,25 @@ impl TreeModel {
         }
     }
 
-    /// Open file using default application.
+    /// Open file at `path` using default application.
     pub fn open_file(&self, path: &String) -> Result<()> {
         use open::that;
         let pathvec = self.resolve_virtual_path(path)?;
         let item = self.item_at(pathvec)?;
-        let path = resolve_path(item.entity.as_ref().unwrap().to_str().unwrap()).unwrap();
+        let entity_path = match item.entity.as_ref() {
+            Some(path) => path,
+            None => return Err(TreeError::new("No entity".to_string())),
+        };
+        let path = match resolve_path(entity_path.to_str().unwrap()){
+            Ok(path) => path,
+            Err(err) => return Err(TreeError::new(format!("{}", err))),
+        };
 
         match that(path) {
             Ok(_) => Ok(()),
-            Err(err) => Err(TreeError::new(format!("Error opening file: {}", err)))
+            Err(err) => Err(
+                TreeError::new(format!("Error opening file: {}", err))
+            )
         }
     }
 
@@ -300,9 +304,11 @@ impl TreeModel {
         let item = self.item_at(pathvec)?;
         let mut name_vec: Vec<String> = Vec::new();
         let mut desc_vec: Vec<String> = Vec::new();
-        for child in item.clone() {
-            name_vec.push(child.name);
-            desc_vec.push(child.desc.unwrap_or("".to_string()));
+        for child in item.iter_children().into_iter() {
+            name_vec.push(child.name.clone());
+            let default_desc = "<no description>".to_string();
+            let desc = child.desc.as_ref().unwrap_or(&default_desc);
+            desc_vec.push(desc.clone());
         }
         // find longest name to align descriptions
         let mut max_len = 0;
