@@ -42,6 +42,11 @@ impl TreeItem {
         Ok(tree)
     }
 
+    /// Create a new item from a formatted string.
+    pub fn from_string(s: &String) -> Self {
+        serde_json::from_str(s.as_str()).unwrap()
+    }
+
     /// True if the tree item is a file.
     pub fn is_file(&self) -> bool {
         match &self.entity {
@@ -57,6 +62,10 @@ impl TreeItem {
 
     pub fn iter_children(&self) -> impl Iterator<Item = &TreeItem> {
         self.children.iter().map(|item| item.as_ref())
+    }
+
+    pub fn iter_children_mut(&mut self) -> impl Iterator<Item = &mut TreeItem> {
+        self.children.iter_mut().map(|item| item.as_mut())
     }
 
     /// Iterate the children names of this item.
@@ -80,16 +89,6 @@ impl TreeItem {
         false
     }
 
-    /// Check if this tree item has a child file with given name.
-    // fn has_file(&self, name: &String) -> bool {
-    //     for each in &self.children {
-    //         if each.name == *name && each.is_file() {
-    //             return true
-    //         }
-    //     }
-    //     false
-    // }
-
     /// Check if this tree item has a child directory with given name.
     fn has_dir(&self, name: &String) -> bool {
         for each in &self.children {
@@ -107,7 +106,16 @@ impl TreeItem {
                 return Ok(each)
             }
         }
-        return Err(TreeError::new(format!("No such file or directory: {}", name)))
+        Err(TreeError::new(format!("No such file or directory: {}", name)))
+    }
+
+    pub fn get_child_mut(&mut self, name: &String) -> Result<&mut TreeItem> {
+        for each in self.iter_children_mut() {
+            if each.name == *name {
+                return Ok(each)
+            }
+        }
+        Err(TreeError::new(format!("No such file or directory: {}", name)))
     }
 
     /// Get a child directory by its name.
@@ -118,26 +126,6 @@ impl TreeItem {
             }
         }
         return Err(TreeError::new(format!("No such directory: {}", name)))
-    }
-
-    /// Get a offspring item by its relative path from self.
-    /// Unlike `get_child`, input such as "a/b/c" is allowed.
-    pub fn get_offspring(&self, name: &String) -> Result<&TreeItem> {
-        let mut child = self;
-        for eachname in name.replace("\\", "/").split('/').into_iter() {
-            let mut found = false;
-            for each in &child.children {
-                if each.name == *eachname {
-                    child = each.as_ref();
-                    found = true;
-                    break;
-                }
-            }
-            if !found {
-                return Err(TreeError::new(format!("No such file or directory: {}", name)))
-            }
-        }
-        Ok(child)
     }
 
     /// Convert self as a mutable object.

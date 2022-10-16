@@ -45,7 +45,7 @@ pub fn enter(name: String) -> std::io::Result<()> {
         let input = match VCommand::from_string(&user_input){
             Ok(input) => input,
             Err(e) => {
-                app.print_text(format!("{}", e));
+                app.print_error(e);
                 continue;
             }
         };
@@ -137,7 +137,7 @@ pub fn enter(name: String) -> std::io::Result<()> {
                         item.desc = Some(desc);
                     }
                     None => {
-                        app.print_text(format!("{}", item.desc.as_ref().unwrap_or(&"".to_string())));
+                        // TODO: enter description mode
                     }
                 }
                 Ok(())
