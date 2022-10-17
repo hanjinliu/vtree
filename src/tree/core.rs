@@ -51,7 +51,8 @@ impl PathVector {
         Self::from_vec(vec)
     }
 
-    pub fn as_str(&self) -> String {
+    /// Convert path vector into the formatted path string.
+    pub fn to_string(&self) -> String {
         self.path.join("/")
     }
 }
@@ -93,7 +94,7 @@ impl TreeModel {
     pub fn current_item(&self) -> Result<&TreeItem> {
         let mut current = &self.root;
         for frg in &self.path.path {
-            current = current.get_child(frg)?;
+            current = current.get_child_dir(frg)?;
         }
         Ok(current)
     }
@@ -102,7 +103,7 @@ impl TreeModel {
     pub fn current_item_mut(&mut self) -> Result<&mut TreeItem> {
         let mut current = &mut self.root;
         for frg in &self.path.path {
-            current = current.get_child_mut(frg)?;
+            current = current.get_child_dir_mut(frg)?;
         }
         Ok(current)
     }
@@ -142,7 +143,7 @@ impl TreeModel {
         self.item_at(pathvec)
     }
 
-    fn item_at(&self, pathvec: Vec<String>) -> Result<&TreeItem> {
+    fn solve_path_vec(&self, pathvec: &Vec<String>) -> PathVector {
         let mut cpath = if pathvec.get(0) == Some(&"~".to_string()) {
             PathVector::new()
         } else {
@@ -156,28 +157,22 @@ impl TreeModel {
                 cpath = cpath.join_str(p.to_string());
             }
         }
+        cpath
+    }
+
+    /// Get tree item at `pathvec`.
+    fn item_at(&self, pathvec: Vec<String>) -> Result<&TreeItem> {
+        let cpath = self.solve_path_vec(&pathvec);
         let mut item = &self.root;
         for path in &cpath.path {
             item = item.get_child(path)?;
         }
         Ok(item)
     }
-
     
+    /// Get tree item at `pathvec` as a mutable reference.
     fn item_at_mut(&mut self, pathvec: Vec<String>) -> Result<&mut TreeItem> {
-        let mut cpath = if pathvec.get(0) == Some(&"~".to_string()) {
-            PathVector::new()
-        } else {
-            self.path.clone()
-        };
-        // let mut cpath = self.path.clone();
-        for p in pathvec {
-            if p == ".." {
-                cpath = cpath.pops(1);
-            } else {
-                cpath = cpath.join_str(p.to_string());
-            }
-        }
+        let cpath = self.solve_path_vec(&pathvec);
         let mut item = &mut self.root;
         for path in &cpath.path {
             item = item.get_child_mut(path)?;
@@ -185,26 +180,53 @@ impl TreeModel {
         Ok(item)
     }
 
+    /// Get directory tree item at `pathvec`.
+    fn dir_item_at(&self, pathvec: &Vec<String>) -> Result<&TreeItem> {
+        let mut cpath = self.solve_path_vec(&pathvec);
+        let mut item = &self.root;
+        let last = cpath.path.pop().unwrap();
+        for path in &cpath.path {
+            item = item.get_child_dir(path)?;
+        }
+        let item = item.get_child_dir(&last)?;
+        assert!(item.is_dir());
+        Ok(item)
+    }
+
+    
+    /// Get directory tree item at `pathvec` as a mutable reference.
+    fn dir_item_at_mut(&mut self, pathvec: &Vec<String>) -> Result<&mut TreeItem> {
+        let mut cpath = self.solve_path_vec(&pathvec);
+        let mut item = &mut self.root;
+        let last = cpath.path.pop().unwrap();
+        for path in &cpath.path {
+            item = item.get_child_dir_mut(path)?;
+        }
+        let item = item.get_child_dir_mut(&last)?;
+        assert!(item.is_dir());
+        Ok(item)
+    }
+
     /// Return the current path.
     pub fn pwd(&self) -> String {
-        self.path.as_str()
+        self.path.to_string()
     }
 
-    pub fn move_forward(&mut self, name: String) -> Result<()> {
+    /// Move to the child directory, just like "cd xxx/yyy".
+    fn move_forward(&mut self, name: String) -> Result<()> {
         let path = self.path.join_str(name);
-        if self.check_path_exists(path.path.iter()) {
-            self.path = path;
-            Ok(())
-        } else {
-            Err(TreeError::new("Path does not exist".to_string()))
-        }
+        self.dir_item_at(&path.path)?;  // check if getting directory succeeds
+        self.path = path;
+        Ok(())
     }
 
-    pub fn move_backward(&mut self, level: usize) -> Result<()> {
+    /// Move to the parent directory, just like "cd ../".
+    fn move_backward(&mut self, level: usize) -> Result<()> {
         self.path = self.path.clone().pops(level);
         Ok(())
     }
 
+    /// Move to the home (root) directory.
     pub fn move_to_home(&mut self) {
         self.path = PathVector::new();
     }
@@ -225,7 +247,7 @@ impl TreeModel {
 
     pub fn as_prefix(&self) -> String {
         let name = &self.root.name;
-        let path = self.path.as_str();
+        let path = self.path.to_string();
         format!("/[{}]/{} > ", name, path)
     }
     
@@ -310,7 +332,7 @@ impl TreeModel {
             None => return Err(TreeError::new("Cannot remove root".to_string()))
         };
         
-        let item = self.item_at_mut(pathvec)?;
+        let item = self.dir_item_at_mut(&pathvec)?;
         item.remove_child(&file_name)
     }
 
@@ -321,7 +343,7 @@ impl TreeModel {
             None => ".".to_string(),
         };
         let pathvec = self.resolve_virtual_path(&path)?;
-        let item = self.item_at(pathvec)?;
+        let item = self.dir_item_at(&pathvec)?;
         let children: Vec<String> = item.children_names();
         Ok(children.join(" "))
     }
@@ -333,7 +355,7 @@ impl TreeModel {
             None => ".".to_string(),
         };
         let pathvec = self.resolve_virtual_path(&path)?;
-        let item = self.item_at(pathvec)?;
+        let item = self.dir_item_at(&pathvec)?;
         let mut name_vec: Vec<String> = Vec::new();
         let mut desc_vec: Vec<String> = Vec::new();
         for child in item.iter_children().into_iter() {
@@ -398,9 +420,7 @@ impl TreeModel {
         let stem = vpath_copy.file_stem().unwrap().to_str().unwrap();
         let ext = match vpath_copy.extension() {
             Some(ext) => ".".to_string() + ext.to_str().unwrap(),
-            None => {
-                "".to_string()
-            }
+            None => "".to_string(),
         };
         let mut count = 0;
         // search for unique file name
@@ -509,10 +529,16 @@ fn string_to_vec(path: &String) -> Vec<String> {
         .collect::<Vec<String>>()
 }
 
+
 #[cfg(test)]
 mod test_tree_model {
     use super::*;
-    const JSON: &str = r#"{
+
+    // test
+    //   ├─ dir-A
+    //   │   └─ item.txt
+    //   └─ dir-B
+    const JSON_0: &str = r#"{
         "name": "test",
         "children": [
             {
@@ -541,27 +567,81 @@ mod test_tree_model {
 
     #[test]
     fn test_moving() {
-        let mut tree = TreeModel::from_string(JSON);
+        let mut tree = TreeModel::from_string(JSON_0);
         assert_eq!(tree.root.children_names(), vec!["dir-A", "dir-B"]);
         assert_eq!(tree.current_item().unwrap().name, "test");
+        
         tree.move_forward("dir-A".to_string()).unwrap();
         assert_eq!(tree.current_item().unwrap().name, "dir-A");
+        
+        let result = tree.move_forward("item.txt".to_string());
+        assert!(result.is_err());
+        
         tree.move_backward(1).unwrap();
         assert_eq!(tree.current_item().unwrap().name, "test");
     }
 
     #[test]
     fn test_ls() {
-        let tree = TreeModel::from_string(JSON);
+        let tree = TreeModel::from_string(JSON_0);
         assert_eq!(tree.ls_simple(None).unwrap(), "dir-A dir-B");
         assert_eq!(tree.ls_simple(Some("dir-A".to_string())).unwrap(), "item.txt");
     }
 
     #[test]
     fn test_mkdir() {
-        let mut tree = TreeModel::from_string(JSON);
+        let mut tree = TreeModel::from_string(JSON_0);
         let dirname = "dir-C".to_string();
         tree.make_directory(&dirname).unwrap();
         assert_eq!(tree.ls_simple(None).unwrap(), "dir-A dir-B dir-C");
+    }
+
+    // test
+    //   ├─ NAME (file)
+    //   └─ NAME
+    //       └─ item.txt
+    const JSON_1: &str = r#"{
+        "name": "test",
+        "children": [
+            {
+                "name": "NAME",
+                "children": [],
+                "desc": null,
+                "entity": "./xyz/NAME"
+            },
+            {
+                "name": "NAME",
+                "children": [
+                    {
+                        "name": "item.txt",
+                        "children": [],
+                        "desc": "test item",
+                        "entity": "./xyz/item.txt"
+                    }
+                ],
+                "desc": null,
+                "entity": null
+            }
+        ],
+        "desc": null,
+        "entity": null
+    }"#;
+
+    #[test]
+    fn test_duplicated_cd() {
+        let mut tree = TreeModel::from_string(JSON_1);
+        {
+            let citem = tree.current_item().unwrap();
+            let mut iter = citem.iter_children();
+            assert!(iter.next().unwrap().entity.is_some());
+            assert!(iter.next().unwrap().entity.is_none());
+        }
+        tree.move_forward("NAME".to_string()).unwrap();
+        {
+            let item = tree.current_item().unwrap();
+            assert!(item.is_dir());
+            assert!(item.entity.is_none());
+        }
+        assert_eq!(tree.ls_simple(None).unwrap(), "item.txt");
     }
 }

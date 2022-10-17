@@ -49,6 +49,9 @@ impl TreeItem {
 
     /// True if the tree item is a file.
     pub fn is_file(&self) -> bool {
+        if self.children.len() > 0 {
+            return false;
+        }
         match &self.entity {
             Some(path) => path.is_file(),
             None => false,
@@ -75,6 +78,7 @@ impl TreeItem {
 
     /// Get the vector of children names.
     pub fn children_names(&self) -> Vec<String> {
+        assert!(self.is_dir());
         let names:Vec<String> = self.iter_children_names().map(|x| x.clone()).collect();
         names
     }
@@ -163,6 +167,16 @@ impl TreeItem {
     /// Get a child directory by its name.
     pub fn get_child_dir(&self, name: &String) -> Result<&TreeItem> {
         for each in &self.children {
+            if each.name == *name && each.is_dir() {
+                return Ok(each)
+            }
+        }
+        return Err(TreeError::new(format!("No such directory: {}", name)))
+    }
+
+    /// Get a child directory by its name.
+    pub fn get_child_dir_mut(&mut self, name: &String) -> Result<&mut TreeItem> {
+        for each in self.iter_children_mut() {
             if each.name == *name && each.is_dir() {
                 return Ok(each)
             }
