@@ -89,6 +89,7 @@ impl TreeModel {
         file.write_all(serialized.as_bytes())
     }
 
+    /// Get the current tree item.
     pub fn current_item(&self) -> Result<&TreeItem> {
         let mut current = &self.root;
         for frg in &self.path.path {
@@ -97,6 +98,7 @@ impl TreeModel {
         Ok(current)
     }
 
+    /// Get the current tree item as a mutable reference.
     pub fn current_item_mut(&mut self) -> Result<&mut TreeItem> {
         let mut current = &mut self.root;
         for frg in &self.path.path {
@@ -104,13 +106,6 @@ impl TreeModel {
         }
         Ok(current)
     }
-    // pub fn current_item_mut(&mut self) -> Result<&mut TreeItem> {
-    //     let ref mut current = self.root.clone();
-    //     for frg in &self.path.path {
-    //         *current = current.get_child(frg)?.clone();
-    //     }
-    //     Ok(current)
-    // }
 
     pub fn resolve_virtual_path(&self, path: &String) -> Result<Vec<String>> {
         let mut curpath: Vec<String> = Vec::new();
@@ -234,6 +229,7 @@ impl TreeModel {
         format!("/[{}]/{} > ", name, path)
     }
     
+    /// Read the file content at `path`.
     pub fn read_file(&self, path: &String) -> Result<String> {
         let pathvec = self.resolve_virtual_path(path)?;
         let item = self.item_at(pathvec)?;
@@ -331,7 +327,7 @@ impl TreeModel {
     }
 
     /// Return the text for "ls --desc" command.
-    pub fn ls_with_desc(&self, path: Option<String>) -> Result<String> {
+    pub fn ls_detailed(&self, path: Option<String>) -> Result<String> {
         let path = match path {
             Some(path) => path,
             None => ".".to_string(),
