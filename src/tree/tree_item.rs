@@ -171,17 +171,22 @@ impl TreeItem {
                 return Ok(each)
             }
         }
-        return Err(TreeError::new(format!("No such directory: {}", name)))
+        return Err(
+            TreeError::new(format!("No directory named {} under {}", name, self.name))
+        )
     }
 
     /// Get a child directory by its name.
     pub fn get_child_dir_mut(&mut self, name: &String) -> Result<&mut TreeItem> {
+        let item_name = self.name.clone();
         for each in self.iter_children_mut() {
             if each.name == *name && each.is_dir() {
                 return Ok(each)
             }
         }
-        return Err(TreeError::new(format!("No such directory: {}", name)))
+        return Err(
+            TreeError::new(format!("No directory named {} under {}", name, item_name))
+        )
     }
 
     /// Convert self as a mutable object.
