@@ -88,7 +88,7 @@ pub fn enter(name: String) -> std::io::Result<()> {
             }
             VCommand::Ls { name, desc } => {
                 let str = if desc {
-                    app.tree.ls_with_desc(name)
+                    app.tree.ls_detailed(name)
                 } else {
                     app.tree.ls_simple(name)
                 };
