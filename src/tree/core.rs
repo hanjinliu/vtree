@@ -176,11 +176,12 @@ impl TreeModel {
     fn dir_item_at(&self, pathvec: &Vec<String>) -> Result<&TreeItem> {
         let mut cpath = self.resolve_virtual_path_vec(&pathvec);
         let mut item = &self.root;
-        let last = cpath.pop().unwrap();
-        for path in &cpath {
-            item = item.get_child_dir(path)?;
+        if let Some(last) = cpath.pop() {
+            for path in &cpath {
+                item = item.get_child_dir(path)?;
+            }
+            item = item.get_child_dir(&last)?;
         }
-        let item = item.get_child_dir(&last)?;
         assert!(item.is_dir());
         Ok(item)
     }
@@ -190,11 +191,13 @@ impl TreeModel {
     fn dir_item_at_mut(&mut self, pathvec: &Vec<String>) -> Result<&mut TreeItem> {
         let mut cpath = self.resolve_virtual_path_vec(&pathvec);
         let mut item = &mut self.root;
-        let last = cpath.pop().unwrap();
-        for path in &cpath {
-            item = item.get_child_dir_mut(path)?;
+
+        if let Some(last) = cpath.pop() {
+            for path in &cpath {
+                item = item.get_child_dir_mut(path)?;
+            }
+            item = item.get_child_dir_mut(&last)?;
         }
-        let item = item.get_child_dir_mut(&last)?;
         assert!(item.is_dir());
         Ok(item)
     }
@@ -336,7 +339,9 @@ impl TreeModel {
             None => ".".to_string(),
         };
         let pathvec = self.resolve_virtual_path(&path);
+        println!("\n\n\n\n{:?}", pathvec);
         let item = self.dir_item_at(&pathvec)?;
+        println!("\n\n\n\n{:?}", item.name);
         let children: Vec<String> = item.children_names();
         Ok(children.join(" "))
     }
