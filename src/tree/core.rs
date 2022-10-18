@@ -104,29 +104,35 @@ impl TreeModel {
         Ok(current)
     }
 
-    pub fn resolve_virtual_path(&self, path: &String) -> Result<Vec<String>> {
-        let mut curpath: Vec<String> = Vec::new();
-        if !path.starts_with("~") {
-            for s in &self.path.path {
-                curpath.push(s.to_string());
-            }
-        }
-
-        let pathvec = path
+    /// Resolve a path and normalize it into a path vector from the root.
+    pub fn resolve_virtual_path(&self, path: &String) -> Vec<String> {
+        let pathvec: Vec<String> = path
             .replace("\\", "/")
             .split("/")
             .map(|s| s.to_string())
-            .filter(|s| s != "" && s != "." && s != "~")
-            .collect::<Vec<String>>();
+            .collect();
+        
+        self.resolve_virtual_path_vec(&pathvec)
+    }
 
-            for p in pathvec {
+    fn resolve_virtual_path_vec(&self, pathvec: &Vec<String>) -> Vec<String> {
+        let mut curpath = 
+            if pathvec.get(0) == Some(&"~".to_string()) {
+                Vec::new()
+            } else {
+                self.path.path.clone()
+            };
+
+        for p in pathvec {
             if p == ".." {
                 curpath.pop();
+            } else if p == "" || p == "." || p == "~" {
+                // do nothing
             } else {
-                curpath.push(p);
+                curpath.push(p.to_string());
             }
         }
-        Ok(curpath)
+        curpath
     }
 
     fn check_path_exists<'a>(&self, path: impl Iterator<Item = &'a String>) -> bool {
@@ -142,33 +148,15 @@ impl TreeModel {
 
     /// Get tree item at `path`.
     pub fn get_item(&self, path: &String) -> Result<&TreeItem> {
-        let pathvec = self.resolve_virtual_path(path)?;
+        let pathvec = self.resolve_virtual_path(path);
         self.item_at(pathvec)
-    }
-
-    fn solve_path_vec(&self, pathvec: &Vec<String>) -> PathVector {
-        let mut cpath = 
-            if pathvec.get(0) == Some(&"~".to_string()) {
-                PathVector::new()
-            } else {
-                self.path.clone()
-            };
-
-        for p in pathvec {
-            if p == ".." {
-                cpath.pops(1);
-            } else {
-                cpath.join_str(p.to_string());
-            }
-        }
-        cpath
     }
 
     /// Get tree item at `pathvec`.
     fn item_at(&self, pathvec: Vec<String>) -> Result<&TreeItem> {
-        let cpath = self.solve_path_vec(&pathvec);
+        let cpath = self.resolve_virtual_path_vec(&pathvec);
         let mut item = &self.root;
-        for path in &cpath.path {
+        for path in &cpath {
             item = item.get_child(path)?;
         }
         Ok(item)
@@ -176,9 +164,9 @@ impl TreeModel {
     
     /// Get tree item at `pathvec` as a mutable reference.
     fn item_at_mut(&mut self, pathvec: Vec<String>) -> Result<&mut TreeItem> {
-        let cpath = self.solve_path_vec(&pathvec);
+        let cpath = self.resolve_virtual_path_vec(&pathvec);
         let mut item = &mut self.root;
-        for path in &cpath.path {
+        for path in &cpath {
             item = item.get_child_mut(path)?;
         }
         Ok(item)
@@ -186,10 +174,10 @@ impl TreeModel {
 
     /// Get directory tree item at `pathvec`.
     fn dir_item_at(&self, pathvec: &Vec<String>) -> Result<&TreeItem> {
-        let mut cpath = self.solve_path_vec(&pathvec);
+        let mut cpath = self.resolve_virtual_path_vec(&pathvec);
         let mut item = &self.root;
-        let last = cpath.path.pop().unwrap();
-        for path in &cpath.path {
+        let last = cpath.pop().unwrap();
+        for path in &cpath {
             item = item.get_child_dir(path)?;
         }
         let item = item.get_child_dir(&last)?;
@@ -200,10 +188,10 @@ impl TreeModel {
     
     /// Get directory tree item at `pathvec` as a mutable reference.
     fn dir_item_at_mut(&mut self, pathvec: &Vec<String>) -> Result<&mut TreeItem> {
-        let mut cpath = self.solve_path_vec(&pathvec);
+        let mut cpath = self.resolve_virtual_path_vec(&pathvec);
         let mut item = &mut self.root;
-        let last = cpath.path.pop().unwrap();
-        for path in &cpath.path {
+        let last = cpath.pop().unwrap();
+        for path in &cpath {
             item = item.get_child_dir_mut(path)?;
         }
         let item = item.get_child_dir_mut(&last)?;
@@ -258,7 +246,7 @@ impl TreeModel {
     
     /// Read the file content at `path`.
     pub fn read_file(&self, path: &String) -> Result<String> {
-        let pathvec = self.resolve_virtual_path(path)?;
+        let pathvec = self.resolve_virtual_path(path);
         let item = self.item_at(pathvec)?;
         if item.is_file() {
             let rpath = item.entity.as_ref().unwrap().to_str().unwrap();
@@ -284,7 +272,7 @@ impl TreeModel {
     /// Open file at `path` using default application.
     pub fn open_file(&self, path: &String) -> Result<()> {
         use open::that;
-        let pathvec = self.resolve_virtual_path(path)?;
+        let pathvec = self.resolve_virtual_path(path);
         let item = self.item_at(pathvec)?;
         let entity_path = match item.entity.as_ref() {
             Some(path) => path,
@@ -305,7 +293,7 @@ impl TreeModel {
 
     /// Get the item at `name` and return its entity path.
     pub fn entity_abspath(&self, path: &String) -> Result<PathBuf> {
-        let pathvec = self.resolve_virtual_path(path)?;
+        let pathvec = self.resolve_virtual_path(path);
         let item = self.item_at(pathvec)?;
         let rpath = item.entity_path();
         match rpath {
@@ -317,7 +305,7 @@ impl TreeModel {
         }
     }
     pub fn make_directory(&mut self, path: &String) -> Result<()> {
-        let mut pathvec = self.resolve_virtual_path(path)?;
+        let mut pathvec = self.resolve_virtual_path(path);
         let file_name = match pathvec.pop() {
             Some(name) => name,
             None => return Err(TreeError::new("Path could not be resolved".to_string()))
@@ -331,7 +319,7 @@ impl TreeModel {
     }
 
     pub fn remove_child(&mut self, path: &String) -> Result<()> {
-        let mut pathvec = self.resolve_virtual_path(path)?;
+        let mut pathvec = self.resolve_virtual_path(path);
         let file_name = match pathvec.pop() {
             Some(name) => name,
             None => return Err(TreeError::new("Cannot remove root".to_string()))
@@ -347,7 +335,7 @@ impl TreeModel {
             Some(path) => path,
             None => ".".to_string(),
         };
-        let pathvec = self.resolve_virtual_path(&path)?;
+        let pathvec = self.resolve_virtual_path(&path);
         let item = self.dir_item_at(&pathvec)?;
         let children: Vec<String> = item.children_names();
         Ok(children.join(" "))
@@ -359,7 +347,7 @@ impl TreeModel {
             Some(path) => path,
             None => ".".to_string(),
         };
-        let pathvec = self.resolve_virtual_path(&path)?;
+        let pathvec = self.resolve_virtual_path(&path);
         let item = self.dir_item_at(&pathvec)?;
         let mut name_vec: Vec<String> = Vec::new();
         let mut desc_vec: Vec<String> = Vec::new();
@@ -395,7 +383,7 @@ impl TreeModel {
 
         let (dirvec, filename) = match path {
             Some(path) => {
-                let mut pathvec = self.resolve_virtual_path(path)?;
+                let mut pathvec = self.resolve_virtual_path(path);
                 let filename = pathvec.pop().unwrap();
                 (pathvec, filename)
             }
@@ -419,7 +407,7 @@ impl TreeModel {
     }
 
     pub fn create_new_file(&mut self, path: &String, candidate: PathBuf) -> Result<()> {
-        let mut pathvec = self.resolve_virtual_path(path)?;
+        let mut pathvec = self.resolve_virtual_path(path);
         if self.check_path_exists(pathvec.iter()) {
             return Err(TreeError::new(format!("{} already exists.", path)))
         }
@@ -473,7 +461,7 @@ impl TreeModel {
     pub fn call_command(&self, inputs: &Vec<String>) -> Result<()> {
         let mut output: Vec<String> = Vec::new();
         for arg in inputs {
-            let pathvec = self.resolve_virtual_path(arg)?;
+            let pathvec = self.resolve_virtual_path(arg);
             let arg = match self.item_at(pathvec) {
                 Ok(item) => {
                     match item.entity.as_ref() {
@@ -605,9 +593,7 @@ mod test_tree_model {
     // implementation just for test
     impl TreeModel {
         fn assert_path_equal(&self, l: &str, path: &str) {
-            let path1 = self.resolve_virtual_path(&l.to_string())
-                .unwrap()
-                .join("/");
+            let path1 = self.resolve_virtual_path(&l.to_string()).join("/");
             let path2 = path.to_string();
             assert_eq!(path1, path2);
         }
