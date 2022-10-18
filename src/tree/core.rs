@@ -28,10 +28,8 @@ impl PathVector {
 
     /// Create a new path vector by extending the existing path with a string. This
     /// function is an immutable operation.
-    pub fn join_str(&self, name: String) -> Self {
-        let mut vec = self.path.clone();
-        vec.push(name);
-        Self::from_vec(vec)
+    pub fn join_str(&mut self, name: String) {
+        self.path.push(name);
     }
 
     /// Create a new path vector by extending the existing path with another path
@@ -42,13 +40,11 @@ impl PathVector {
         Self::from_vec(vec)
     }
 
-    pub fn pops(self, level: usize) -> Self {
-        let mut vec = self.path.clone();
-        let npop = level.min(vec.len());
+    pub fn pops(&mut self, level: usize) {
+        let npop = level.min(self.path.len());
         for _ in 0..npop {
-            vec.pop();
+            self.path.pop();
         }
-        Self::from_vec(vec)
     }
 
     /// Convert path vector into the formatted path string.
@@ -110,13 +106,20 @@ impl TreeModel {
 
     pub fn resolve_virtual_path(&self, path: &String) -> Result<Vec<String>> {
         let mut curpath: Vec<String> = Vec::new();
-        if path.starts_with("~") {
+        if !path.starts_with("~") {
             for s in &self.path.path {
                 curpath.push(s.to_string());
             }
         }
-        let pathvec = string_to_vec(path);
-        for p in pathvec {
+
+        let pathvec = path
+            .replace("\\", "/")
+            .split("/")
+            .map(|s| s.to_string())
+            .filter(|s| s != "" && s != "." && s != "~")
+            .collect::<Vec<String>>();
+
+            for p in pathvec {
             if p == ".." {
                 curpath.pop();
             } else {
@@ -144,17 +147,18 @@ impl TreeModel {
     }
 
     fn solve_path_vec(&self, pathvec: &Vec<String>) -> PathVector {
-        let mut cpath = if pathvec.get(0) == Some(&"~".to_string()) {
-            PathVector::new()
-        } else {
-            self.path.clone()
-        };
-        // let mut cpath = self.path.clone();
+        let mut cpath = 
+            if pathvec.get(0) == Some(&"~".to_string()) {
+                PathVector::new()
+            } else {
+                self.path.clone()
+            };
+
         for p in pathvec {
             if p == ".." {
-                cpath = cpath.pops(1);
+                cpath.pops(1);
             } else {
-                cpath = cpath.join_str(p.to_string());
+                cpath.join_str(p.to_string());
             }
         }
         cpath
@@ -214,7 +218,8 @@ impl TreeModel {
 
     /// Move to the child directory, just like "cd xxx/yyy".
     fn move_forward(&mut self, name: String) -> Result<()> {
-        let path = self.path.join_str(name);
+        let mut path = self.path.clone();
+        path.join_str(name);
         self.dir_item_at(&path.path)?;  // check if getting directory succeeds
         self.path = path;
         Ok(())
@@ -222,7 +227,7 @@ impl TreeModel {
 
     /// Move to the parent directory, just like "cd ../".
     fn move_backward(&mut self, level: usize) -> Result<()> {
-        self.path = self.path.clone().pops(level);
+        self.path.pops(level);
         Ok(())
     }
 
@@ -317,7 +322,7 @@ impl TreeModel {
             Some(name) => name,
             None => return Err(TreeError::new("Path could not be resolved".to_string()))
         };
-        let item = match self.item_at_mut(pathvec) {
+        let item = match self.dir_item_at_mut(&pathvec) {
             Ok(item) => item,
             Err(_) => self.current_item_mut()?,
         };
@@ -399,7 +404,12 @@ impl TreeModel {
                 for p in &self.path.path {
                     pathvec.push(p.to_string());
                 }
-                let filename = filepath.file_name().unwrap().to_str().unwrap().to_string();
+                let filename = filepath
+                    .file_name()
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+                    .to_string();
                 (pathvec, filename)
             }
         };
@@ -432,7 +442,11 @@ impl TreeModel {
             path = match path.parent() {
                 Some(parent) => parent.join(filename),
                 None => {
-                    return Err(TreeError::new(format!("{} already exists.", path.to_str().unwrap())))
+                    return Err(
+                        TreeError::new(
+                            format!("{} already exists.", path.to_str().unwrap())
+                        )
+                    )
                 }
             };
             count += 1;
@@ -442,7 +456,11 @@ impl TreeModel {
         match std::fs::File::create(&vpath) {
             Ok(_) => {}
             Err(err) => {
-                return Err(TreeError::new(format!("{}: {}", vpath.to_str().unwrap(), err)))
+                return Err(
+                    TreeError::new(
+                        format!("{}: {}", vpath.to_str().unwrap(), err)
+                    )
+                )
             }
         };
         let item = self.item_at_mut(pathvec)?;
@@ -500,17 +518,26 @@ impl TreeModel {
         
         match cmd {
             Ok(_) => Ok(()),
-            Err(err) => Err(TreeError::new(format!("Error calling command: {}", err)))
+            Err(err) => Err(
+                TreeError::new(
+                    format!("Error calling command: {}", err)
+                )
+            )
         }
     }
 }
 
-/// Resolve input path string (must exist) and return a PathBuf with an absolute path.
-/// Input string can be a relative path in the virtual directory or an existing absolute path.
+/// Resolve input path string (must exist) and return a PathBuf with an absolute
+/// path. Input string can be a relative path in the virtual directory or an 
+/// existing absolute path.
 fn resolve_path(path: &str) -> std::io::Result<PathBuf> {
     if path.starts_with(".") || path.starts_with("/") {
         let curdir = std::env::current_dir()?;
-        let path = path.strip_prefix(".").unwrap_or(path).strip_prefix("/").unwrap_or(path);
+        let path = path
+            .strip_prefix(".")
+            .unwrap_or(path)
+            .strip_prefix("/")
+            .unwrap_or(path);
         let joined = std::path::Path::new(&curdir).join(path);
         Ok(joined)
     }
@@ -520,15 +547,9 @@ fn resolve_path(path: &str) -> std::io::Result<PathBuf> {
     }
 }
 
-fn string_to_vec(path: &String) -> Vec<String> {
-    path
-        .replace("\\", "/")
-        .split("/")
-        .map(|s| s.to_string())
-        .filter(|s| s != "" && s != ".")
-        .collect::<Vec<String>>()
-}
-
+// ---------------------------------------------------------------------
+//   test
+// ---------------------------------------------------------------------
 
 #[cfg(test)]
 mod test_tree_model {
@@ -548,7 +569,7 @@ mod test_tree_model {
                         "name": "item.txt",
                         "children": [],
                         "desc": "test item",
-                        "entity": "./xyz/item.txt"
+                        "entity": "./src/main.rs"
                     }
                 ],
                 "desc": null,
@@ -581,12 +602,46 @@ mod test_tree_model {
         assert_eq!(tree.current_item().unwrap().name, "test");
     }
 
+    // implementation just for test
+    impl TreeModel {
+        fn assert_path_equal(&self, l: &str, path: &str) {
+            let path1 = self.resolve_virtual_path(&l.to_string())
+                .unwrap()
+                .join("/");
+            let path2 = path.to_string();
+            assert_eq!(path1, path2);
+        }
+    }
+
     #[test]
-    fn test_ls() {
+    fn test_resolve() {
+        let mut tree = TreeModel::from_string(JSON_0);
+        tree.assert_path_equal(".", "");
+        tree.assert_path_equal("./", "");
+        tree.assert_path_equal("dir-A", "dir-A");
+        tree.assert_path_equal("/dir-A", "dir-A");
+        tree.assert_path_equal("./dir-A", "dir-A");
+
+        tree.move_forward("dir-A".to_string()).unwrap();
+        tree.assert_path_equal(".", "dir-A");
+        tree.assert_path_equal("./item.txt", "dir-A/item.txt");
+        tree.assert_path_equal("../", "");
+        tree.assert_path_equal("../dir-B", "dir-B");
+
+    }
+
+    #[test]
+    fn test_ls_default() {
         let tree = TreeModel::from_string(JSON_0);
         assert_eq!(tree.ls_simple(None).unwrap(), "dir-A dir-B");
+    }
+    
+    #[test]
+    fn test_ls_parametric() {
+        let tree = TreeModel::from_string(JSON_0);
         assert_eq!(tree.ls_simple(Some("dir-A".to_string())).unwrap(), "item.txt");
     }
+    
 
     #[test]
     fn test_mkdir() {
@@ -607,7 +662,7 @@ mod test_tree_model {
                 "name": "NAME",
                 "children": [],
                 "desc": null,
-                "entity": "./xyz/NAME"
+                "entity": "./src/main.rs"
             },
             {
                 "name": "NAME",
@@ -616,7 +671,7 @@ mod test_tree_model {
                         "name": "item.txt",
                         "children": [],
                         "desc": "test item",
-                        "entity": "./xyz/item.txt"
+                        "entity": "./src/main.rs"
                     }
                 ],
                 "desc": null,
@@ -633,8 +688,12 @@ mod test_tree_model {
         {
             let citem = tree.current_item().unwrap();
             let mut iter = citem.iter_children();
-            assert!(iter.next().unwrap().entity.is_some());
-            assert!(iter.next().unwrap().entity.is_none());
+            let item0 = iter.next().unwrap();
+            assert!(item0.is_file());
+            assert!(item0.entity.is_some());
+            let item1 = iter.next().unwrap();
+            assert!(item1.is_dir());
+            assert!(item1.entity.is_none());
         }
         tree.move_forward("NAME".to_string()).unwrap();
         {
