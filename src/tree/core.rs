@@ -674,6 +674,26 @@ mod test_tree_model {
         tree.make_directory(&dirname).unwrap();
         assert_eq!(tree.ls_simple(None).unwrap(), "dir-A dir-B dir-C");
     }
+    
+    #[test]
+    fn test_move_file() {
+        let mut tree = TreeModel::from_string(JSON_0);
+        assert_eq!(tree.ls_simple(None).unwrap(), "dir-A dir-B");
+        assert_eq!(tree.ls_simple(Some("dir-A".to_string())).unwrap(), "item.txt sub-dir");
+
+        tree.move_child(&"dir-A/item.txt".to_string(), &"moved.txt".to_string()).unwrap();
+        assert_eq!(tree.ls_simple(None).unwrap(), "dir-A dir-B moved.txt");
+        assert_eq!(tree.ls_simple(Some("dir-A".to_string())).unwrap(), "sub-dir");
+    }
+
+    #[test]
+    fn test_move_dir() {
+        let mut tree = TreeModel::from_string(JSON_0);
+        tree.move_child(&"dir-A/sub-dir".to_string(), &"moved".to_string()).unwrap();
+        assert_eq!(tree.ls_simple(None).unwrap(), "dir-A dir-B moved");
+        assert_eq!(tree.ls_simple(Some("dir-A".to_string())).unwrap(), "item.txt");
+        assert_eq!(tree.ls_simple(Some("moved".to_string())).unwrap(), "item2.txt");
+    }
 
     // test
     //   ├─ NAME (file)
