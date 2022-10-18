@@ -34,7 +34,6 @@ pub enum VCommand {
         desc: Option<String>,
     },
     Mv {src: String, dst: String},
-    Rename {path: String, name: String},
     Exit {
         #[structopt(long="discard", about="Discard changes and exit")]
         discard: bool,
