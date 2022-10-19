@@ -33,6 +33,7 @@ pub enum VCommand {
         #[structopt(short="d", long="desc", about = "Descriptions")]
         desc: Option<String>,
     },
+    Mv {src: String, dst: String},
     Exit {
         #[structopt(long="discard", about="Discard changes and exit")]
         discard: bool,

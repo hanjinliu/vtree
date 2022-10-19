@@ -195,8 +195,12 @@ impl TreeItem {
     }
 
     /// Add a new file named `name` with entity at `path`.
-    pub fn add_item(&mut self, name: &String, path: PathBuf) -> Result<()> {
+    pub fn add_new_child(&mut self, name: &String, path: PathBuf) -> Result<()> {
         let item = TreeItem::new_file(name.clone(), path);
+        self.add_item(item)
+    }
+
+    pub fn add_item(&mut self, item: TreeItem) -> Result<()> {
         let file = Box::new(item);
         self.children.push(file);
         Ok(())

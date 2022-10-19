@@ -171,6 +171,9 @@ pub fn enter(name: String) -> std::io::Result<()> {
                 };
                 app.tree.remove_child(&name)
             }
+            VCommand::Mv { src, dst } => {
+                app.tree.move_child(&src, &dst)
+            }
             VCommand::Exit { discard } => {
                 if !discard {
                     app.tree.to_file(root.as_path())?;

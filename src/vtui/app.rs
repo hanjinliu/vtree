@@ -394,6 +394,7 @@ impl App {
 
     /// Run tab completion and update the buffer.
     pub fn run_completion(&mut self) {
+        // TODO: x/y/z not supported
         let words = parse_string_raw(&self.buffer);
         let nwords = words.len();
         let last_word = words[nwords - 1].clone();

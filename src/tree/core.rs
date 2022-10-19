@@ -152,6 +152,12 @@ impl TreeModel {
         self.item_at(&pathvec)
     }
 
+    /// Get tree item at `path` as a mutable reference.
+    pub fn get_item_mut(&mut self, path: &String) -> Result<&mut TreeItem> {
+        let pathvec = self.resolve_virtual_path(path);
+        self.item_at_mut(&pathvec)
+    }
+
     /// Get tree item at absolute virtual path `pathvec`.
     fn item_at(&self, pathvec: &Vec<String>) -> Result<&TreeItem> {
         let mut item = &self.root;
@@ -197,6 +203,21 @@ impl TreeModel {
     /// Return the current path.
     pub fn pwd(&self) -> String {
         self.path.to_string()
+    }
+
+    /// Move child item.
+    pub fn move_child(&mut self, src: &String, dst: &String) -> Result<()> {
+        let src_item_path = self.resolve_virtual_path(src);
+        let mut item_clone = self.item_at(&src_item_path)?.clone();
+
+        let mut dist_dirpath = self.resolve_virtual_path(dst);
+        let dst_name = dist_dirpath.pop().unwrap();
+        let dir = self.dir_item_at_mut(&dist_dirpath)?;
+
+        item_clone.name = dst_name;
+        dir.add_item(item_clone)?;
+        self.remove_child(src)?;
+        Ok(())
     }
 
     /// Move to the child directory, just like "cd xxx/yyy".
@@ -398,7 +419,7 @@ impl TreeModel {
         };
 
         let item = self.item_at_mut(&dirvec)?;
-        item.add_item(&filename, filepath)
+        item.add_new_child(&filename, filepath)
     }
 
     pub fn create_new_file(&mut self, path: &String, candidate: PathBuf) -> Result<()> {
@@ -447,7 +468,7 @@ impl TreeModel {
             }
         };
         let item = self.item_at_mut(&pathvec)?;
-        item.add_item(&filename, vpath)
+        item.add_new_child(&filename, vpath)
     }
 
     /// Call external command from the virtual terminal.
@@ -652,6 +673,26 @@ mod test_tree_model {
         let dirname = "dir-C".to_string();
         tree.make_directory(&dirname).unwrap();
         assert_eq!(tree.ls_simple(None).unwrap(), "dir-A dir-B dir-C");
+    }
+    
+    #[test]
+    fn test_move_file() {
+        let mut tree = TreeModel::from_string(JSON_0);
+        assert_eq!(tree.ls_simple(None).unwrap(), "dir-A dir-B");
+        assert_eq!(tree.ls_simple(Some("dir-A".to_string())).unwrap(), "item.txt sub-dir");
+
+        tree.move_child(&"dir-A/item.txt".to_string(), &"moved.txt".to_string()).unwrap();
+        assert_eq!(tree.ls_simple(None).unwrap(), "dir-A dir-B moved.txt");
+        assert_eq!(tree.ls_simple(Some("dir-A".to_string())).unwrap(), "sub-dir");
+    }
+
+    #[test]
+    fn test_move_dir() {
+        let mut tree = TreeModel::from_string(JSON_0);
+        tree.move_child(&"dir-A/sub-dir".to_string(), &"moved".to_string()).unwrap();
+        assert_eq!(tree.ls_simple(None).unwrap(), "dir-A dir-B moved");
+        assert_eq!(tree.ls_simple(Some("dir-A".to_string())).unwrap(), "item.txt");
+        assert_eq!(tree.ls_simple(Some("moved".to_string())).unwrap(), "item2.txt");
     }
 
     // test
