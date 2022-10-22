@@ -106,9 +106,22 @@ pub fn enter(name: String) -> std::io::Result<()> {
                 app.print_text(format!("./{}/{}", app.tree.root.name, app.tree.pwd()));
                 Ok(())
             }
-            VCommand::Cat { name } => {
+            VCommand::Cat { name, number } => {
                 match app.tree.read_file(&name) {
-                    Ok(text) => app.print_text(text),
+                    Ok(text) => {
+                        let output = if number {
+                            let mut output = String::new();
+                            text.split("\n").enumerate().for_each(|(i, line)| {
+                                output.push_str(
+                                    format!("{:4}| {}\n", i + 1, line).as_str()
+                                );
+                            });
+                            output
+                        } else {
+                            text
+                        };
+                        app.print_text(output);
+                    }
                     Err(e) => app.print_error(e),
                 };
                 Ok(())

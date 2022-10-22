@@ -12,32 +12,36 @@ pub fn input() -> std::io::Result<String> {
 #[derive(StructOpt)]
 #[structopt()]
 pub enum VCommand {
-    Empty,
+    Call {vec: Vec<String>},
+    Cat {
+        name: String,
+        #[structopt(short="n", long="number", about="Show line number")]
+        number: bool,
+    },
     Cd {name: Option<String>},
-    Tree {name: Option<String>},
+    Cp {src: String, dst: Option<String>},
+    Desc {
+        name: Option<String>, 
+        #[structopt(short="d", long="desc", about = "Descriptions")]
+        desc: Option<String>,
+    },
+    Empty,
+    Exit {
+        #[structopt(long="discard", about="Discard changes and exit")]
+        discard: bool,
+    },
     Ls {
         name: Option<String>,
         #[structopt(short="d", long="desc", about="Show descriptions")]
         desc: bool,
     },
     Mkdir {name: String},
-    Rm {name: String},
-    Pwd,
-    Cat {name: String},
-    Touch {name: String},
-    Open {name: String},
-    Cp {src: String, dst: Option<String>},
-    Call {vec: Vec<String>},
-    Desc {
-        name: Option<String>, 
-        #[structopt(short="d", long="desc", about = "Descriptions")]
-        desc: Option<String>,
-    },
     Mv {src: String, dst: String},
-    Exit {
-        #[structopt(long="discard", about="Discard changes and exit")]
-        discard: bool,
-    },
+    Open {name: String},
+    Pwd,
+    Rm {name: String},
+    Touch {name: String},
+    Tree {name: Option<String>},
 }
 
 impl VCommand {
