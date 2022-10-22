@@ -254,6 +254,13 @@ impl TreeModel {
         Ok(())
     }
 
+    pub fn find_children<F>(&self, path: &String, f: &F) -> Result<Vec<&TreeItem>> where
+        F: Fn(&TreeItem) -> bool {
+        let item = self.get_item(path)?;
+        let result = item.filter_children(&f);
+        Ok(result)
+    }
+
     pub fn as_prefix(&self) -> String {
         let name = &self.root.name;
         let path = self.path.to_string();

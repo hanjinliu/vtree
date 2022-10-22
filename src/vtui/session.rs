@@ -1,4 +1,5 @@
 use std::io;
+use regex::Regex;
 use tui::{
     backend::CrosstermBackend,
     Terminal,
@@ -124,6 +125,35 @@ pub fn enter(name: String) -> std::io::Result<()> {
                     }
                     Err(e) => app.print_error(e),
                 };
+                Ok(())
+            }
+            VCommand::Find { path, name, method } => {
+                let path = path.unwrap_or(".".to_string());
+                let method = method.unwrap_or("wildcard".to_string());
+                let pattern = if method == "wildcard" {
+                    name.replace("*", ".*")
+                } else if method == "regex" {
+                    name
+                } else {
+                    app.print_text(format!("Invalid method: {}", method));
+                    continue;
+                };
+                let ptn = Regex::new(&pattern).map_err(|e| {
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        format!("Invalid regex pattern: {}", e),
+                    )
+                })?;
+                let found = app.tree.find_children(
+                    &path,
+                    &|item| ptn.is_match(item.name.as_str())
+                    ).unwrap();
+                let text = found
+                    .into_iter()
+                    .map(|item| item.name.clone())
+                    .collect::<Vec<String>>()
+                    .join("\n");
+                app.print_text(text);
                 Ok(())
             }
             VCommand::Touch { name } => {

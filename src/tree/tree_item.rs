@@ -242,6 +242,21 @@ impl TreeItem {
         return Err(TreeError::new(format!("No such file or directory: {}", name)))
     }
 
+    pub fn filter_children<F>(&self, f: &F) -> Vec<&TreeItem> where
+    F: Fn(&TreeItem) -> bool {
+        let mut out = Vec::new();
+        for child in self.iter_children() {
+            if child.is_dir() {
+                for item in child.filter_children(f) {
+                    out.push(item);
+                }
+            } else if f(child) {
+                out.push(child)
+            }
+        }
+        out
+    }
+
     /// Return all the entities.
     pub fn entities(&self) -> Vec<&Box<TreeItem>> {
         let mut values = Vec::new();

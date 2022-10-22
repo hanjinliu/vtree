@@ -8,6 +8,7 @@ pub fn input() -> std::io::Result<String> {
     Ok(val)
 }
 
+
 // The virtual command line interface.
 #[derive(StructOpt)]
 #[structopt()]
@@ -29,6 +30,13 @@ pub enum VCommand {
     Exit {
         #[structopt(long="discard", about="Discard changes and exit")]
         discard: bool,
+    },
+    Find {
+        path: Option<String>,
+        #[structopt(short="n", long="name")]
+        name: String,
+        #[structopt(short="m", long="method")]
+        method: Option<String>,
     },
     Ls {
         name: Option<String>,
